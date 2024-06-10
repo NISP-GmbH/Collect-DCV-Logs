@@ -109,7 +109,7 @@ getDcvDataAfterReboot()
             sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal
         fi 
     else
-        echo "dcv reboot test not executed" > ${target_dir}/after_reboot/dcv_reboot_test_not_executed
+        echo "dcv reboot test not executed" > ${target_dir}/dcv_reboot_test_not_executed
     fi
 }
 
