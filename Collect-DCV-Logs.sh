@@ -56,6 +56,7 @@ createTempDirs()
 
 getGdmData()
 {
+    echo "Collecting all GDM relevant info..."
     target_dir="${temp_dir}/gdm_log/"
     if [ -f /var/log/gdm ]
     then
@@ -76,6 +77,7 @@ getGdmData()
 
 getHwData()
 {
+    echo "Collecting all Hardware relevant info..."
     target_dir="${temp_dir}/hardware_info/"
 
     if command -v lshw > /dev/null 2>&1
