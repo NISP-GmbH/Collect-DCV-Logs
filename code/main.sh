@@ -7,6 +7,8 @@ main()
     welcomeMessage
     createTempDirs
     getOsData
+    getHwData
+    getGdmData
     getXorgData
     getDcvData
     getDcvDataAfterReboot
