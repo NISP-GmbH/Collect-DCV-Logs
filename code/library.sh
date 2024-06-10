@@ -72,7 +72,7 @@ getDcvDataAfterReboot()
     echo "Do you agree with DCV service restart?"
     echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
     read user_answer
-    target_dir="${temp_dir}/dcv_log/after_reboot"
+    target_dir="${temp_dir}/dcv_log/after_reboot/"
     mkdir -p $target_dir
 
     if echo $user_answer | egrep -iq "yes"
@@ -81,7 +81,7 @@ getDcvDataAfterReboot()
     
         if [ -d /var/log/dcv ]
         then
-            sudo cp -r /var/log/dcv ${target_dir}/after_reboot/
+            sudo cp -r /var/log/dcv ${target_dir}
         else
             echo "not found" > $target_dir/var_log_dcv_not_found
             sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
