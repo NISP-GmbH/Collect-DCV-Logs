@@ -46,14 +46,22 @@ getHwInfo()
     then
         sudo lshw > ${target_dir}/lshw_hardware_info.txt
     else
-        echo "lshw not found" > ${target_dir}/lshw_not_found
+        echo "lshw not found" > ${target_dir}/not_found_lshw
     fi
 
     if command -v lscpu > /dev/null 2>&1
     then
         sudo lscpu  > ${target_dir}/lscpu_hardware_info.txt
     else
-        echo "lscpu not found" > ${target_dir}/lscpu_not_found
+        echo "lscpu not found" > ${target_dir}/not_found_lscpu
+    fi
+
+    if command -v dmidecode > /dev/null 2>&1
+    then
+        sudo dmidecode > ${target_dir}/dmidecode        
+    else
+        echo "dmidecode not found" > ${target_dir}/not_found_dmidecode 
+
     fi
 }
 
