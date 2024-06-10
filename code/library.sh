@@ -32,10 +32,29 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log
+    for new_dir in xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
+}
+
+getHwInfo()
+{
+    target_dir="${temp_dir}/hardware_info/"
+
+    if command -v lshw > /dev/null 2>&1
+    then
+        sudo lshw > ${target_dir}/lshw_hardware_info.txt
+    else
+        echo "lshw not found" > ${target_dir}/lshw_not_found
+    fi
+
+    if command -v lscpu > /dev/null 2>&1
+    then
+        sudo lscpu  > ${target_dir}/lscpu_hardware_info.txt
+    else
+        echo "lscpu not found" > ${target_dir}/lscpu_not_found
+    fi
 }
 
 getDcvDataAfterReboot()
