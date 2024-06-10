@@ -32,10 +32,30 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info
+    for new_dir in xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
+}
+
+getGdmData()
+{
+    target_dir="${temp_dir}/gdm_log/"
+    if [ -f /var/log/gdm ]
+    then
+        sudo cp -r /var/log/gdm $target_dir
+    fi
+
+    if [ -f /var/log/gdm3 ]
+    then
+        sudo cp -r /var/log/gdm3 $target_dir
+    fi
+
+    target_dir="${temp_dir}/gdm_conf/"
+    if [ -f /etc/gdm/ ]
+    then
+        sudo cp -r /etc/gdm $target_dir
+    fi
 }
 
 getHwInfo()
@@ -164,11 +184,15 @@ getOsData()
     fi
 
     target_dir="${temp_dir}/os_log/"
-    sudo cp /var/log/dmesg* $target_dir
-    sudo cp /var/log/kern* $target_dir
-    sudo cp /var/log/auth* $target_dir
-    sudo cp /var/log/syslog* $target_dir
+    sudo cp /var/log/dmesg* $target_dir > /dev/null 2>&1
+    sudo cp /var/log/messages* $target_dir > /dev/null 2>&1
+    sudo cp /var/log/kern* $target_dir > /dev/null 2>&1
+    sudo cp /var/log/auth* $target_dir > /dev/null 2>&1
+    sudo cp /var/log/syslog* $target_dir > /dev/null 2>&1
     sudo cp -r /var/log/audit* $target_dir > /dev/null 2>&1
+    sudo cp -r /var/log/secure* $target_dir > /dev/null 2>&1
+    sudo cp -r /var/log/boot* $target_dir > /dev/null 2>&1
+    sudo cp -r /var/log/kdump* $target_dir > /dev/null 2>&1
 
     target_dir="${temp_dir}/journal_log"
     sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
