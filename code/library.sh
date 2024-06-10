@@ -58,7 +58,7 @@ getGdmData()
     fi
 }
 
-getHwInfo()
+getHwData()
 {
     target_dir="${temp_dir}/hardware_info/"
 
