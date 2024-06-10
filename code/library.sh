@@ -120,11 +120,17 @@ getOsData()
     echo "Collecting all Operating System relevant data..."
     target_dir="${temp_dir}/os_info/"
     sudo uname -a > $target_dir/uname_-a
-    sudo lsb_release -a > $target_dir/lsb_release_-a
 
-    if [ -f /usr/sbin/getenforce ]
+    if command -v lsb_release > /dev/null 2>&1
     then
-        sudo /usr/sbin/getenforce > $target_dir/getenforce_result
+        sudo lsb_release -a > $target_dir/lsb_release_-a
+    else
+        echo "lsb_release not found" > $target_dir/not_found_lsb_release
+    fi
+
+    if command -v getenforce > /dev/null 2>&1
+    then
+        sudo getenforce > $target_dir/getenforce_result
     fi
 
     if [ -f /etc/issue ]
@@ -187,7 +193,11 @@ getXorgData()
         sudo cp -r /usr/share/X11 $target_dir
     fi
 
-    sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}xorg.conf.configure.stderr
+    if command -v X > /dev/null 2>&1
+    then
+        sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}xorg.conf.configure.stderr
+    fi
+
     x_display=$(sudo ps aux | egrep '(X|Xorg|Xwayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
     then
