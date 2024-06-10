@@ -161,7 +161,7 @@ getXorgData()
     fi
 
     sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}xorg.conf.configure.stderr
-    x_display=$(sudo ps aux | grep '[X]org' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
+    x_display=$(sudo ps aux | egrep '(X|Xorg|Xwayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x"x ]]
     then
         echo "not possible to execute xrandr: display not found" > ${target_dir}/xrandr_can_not_be_executed
