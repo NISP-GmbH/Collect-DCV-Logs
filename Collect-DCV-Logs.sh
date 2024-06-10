@@ -16,9 +16,10 @@
 
 welcomeMessage()
 {
-    echo "This script will collect importnat logs to help you to find problems in DCV server and eventually additional components."
+    echo "This script will collect important logs to help you to find problems in DCV server and eventually additional components."
     echo "By default the script will not restart any service without your approval. So if you do not agree when asked, this script will collect all logs without touch in any running service."
     echo "Answering yes to those answers can help the support to troubleshoot the problem."
+    echo "If is possible, please execute this script inside of Xorg session (GUI session), so we can collect some useful informations."
     echo "To start collecting the logs, press enter or ctrl+x to quit."
     read p
 }
@@ -47,10 +48,57 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log
+    for new_dir in xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
+}
+
+getGdmData()
+{
+    target_dir="${temp_dir}/gdm_log/"
+    if [ -f /var/log/gdm ]
+    then
+        sudo cp -r /var/log/gdm $target_dir
+    fi
+
+    if [ -f /var/log/gdm3 ]
+    then
+        sudo cp -r /var/log/gdm3 $target_dir
+    fi
+
+    target_dir="${temp_dir}/gdm_conf/"
+    if [ -f /etc/gdm/ ]
+    then
+        sudo cp -r /etc/gdm $target_dir
+    fi
+}
+
+getHwData()
+{
+    target_dir="${temp_dir}/hardware_info/"
+
+    if command -v lshw > /dev/null 2>&1
+    then
+        sudo lshw > ${target_dir}/lshw_hardware_info.txt
+    else
+        echo "lshw not found" > ${target_dir}/not_found_lshw
+    fi
+
+    if command -v lscpu > /dev/null 2>&1
+    then
+        sudo lscpu  > ${target_dir}/lscpu_hardware_info.txt
+    else
+        echo "lscpu not found" > ${target_dir}/not_found_lscpu
+    fi
+
+    if command -v dmidecode > /dev/null 2>&1
+    then
+        sudo dmidecode > ${target_dir}/dmidecode        
+    else
+        echo "dmidecode not found" > ${target_dir}/not_found_dmidecode 
+
+    fi
 }
 
 getDcvDataAfterReboot()
@@ -60,7 +108,7 @@ getDcvDataAfterReboot()
     echo "Do you agree with DCV service restart?"
     echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
     read user_answer
-    target_dir="${temp_dir}/dcv_log/after_reboot"
+    target_dir="${temp_dir}/dcv_log/after_reboot/"
     mkdir -p $target_dir
 
     if echo $user_answer | egrep -iq "yes"
@@ -69,7 +117,7 @@ getDcvDataAfterReboot()
     
         if [ -d /var/log/dcv ]
         then
-            sudo cp -r /var/log/dcv ${target_dir}/after_reboot/
+            sudo cp -r /var/log/dcv ${target_dir}
         else
             echo "not found" > $target_dir/var_log_dcv_not_found
             sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
@@ -108,11 +156,17 @@ getOsData()
     echo "Collecting all Operating System relevant data..."
     target_dir="${temp_dir}/os_info/"
     sudo uname -a > $target_dir/uname_-a
-    sudo lsb_release -a > $target_dir/lsb_release_-a
 
-    if [ -f /usr/sbin/getenforce ]
+    if command -v lsb_release > /dev/null 2>&1
     then
-        sudo /usr/sbin/getenforce > $target_dir/getenforce_result
+        sudo lsb_release -a > $target_dir/lsb_release_-a
+    else
+        echo "lsb_release not found" > $target_dir/not_found_lsb_release
+    fi
+
+    if command -v getenforce > /dev/null 2>&1
+    then
+        sudo getenforce > $target_dir/getenforce_result
     fi
 
     if [ -f /etc/issue ]
@@ -146,11 +200,15 @@ getOsData()
     fi
 
     target_dir="${temp_dir}/os_log/"
-    sudo cp /var/log/dmesg* $target_dir
-    sudo cp /var/log/kern* $target_dir
-    sudo cp /var/log/auth* $target_dir
-    sudo cp /var/log/syslog* $target_dir
+    sudo cp /var/log/dmesg* $target_dir > /dev/null 2>&1
+    sudo cp /var/log/messages* $target_dir > /dev/null 2>&1
+    sudo cp /var/log/kern* $target_dir > /dev/null 2>&1
+    sudo cp /var/log/auth* $target_dir > /dev/null 2>&1
+    sudo cp /var/log/syslog* $target_dir > /dev/null 2>&1
     sudo cp -r /var/log/audit* $target_dir > /dev/null 2>&1
+    sudo cp -r /var/log/secure* $target_dir > /dev/null 2>&1
+    sudo cp -r /var/log/boot* $target_dir > /dev/null 2>&1
+    sudo cp -r /var/log/kdump* $target_dir > /dev/null 2>&1
 
     target_dir="${temp_dir}/journal_log"
     sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
@@ -175,9 +233,13 @@ getXorgData()
         sudo cp -r /usr/share/X11 $target_dir
     fi
 
-    sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}xorg.conf.configure.stderr
-    x_display=$(sudo ps aux | grep '[X]org' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
-    if [[ "${x_display}x" == "x"x ]]
+    if command -v X > /dev/null 2>&1
+    then
+        sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}xorg.conf.configure.stderr
+    fi
+
+    x_display=$(sudo ps aux | egrep '(X|Xorg|Xwayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
+    if [[ "${x_display}x" == "x" ]]
     then
         echo "not possible to execute xrandr: display not found" > ${target_dir}/xrandr_can_not_be_executed
     else
@@ -194,6 +256,8 @@ main()
     welcomeMessage
     createTempDirs
     getOsData
+    getHwData
+    getGdmData
     getXorgData
     getDcvData
     getDcvDataAfterReboot
