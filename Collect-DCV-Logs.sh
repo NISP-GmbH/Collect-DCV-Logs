@@ -20,7 +20,7 @@ welcomeMessage()
     echo "By default the script will not restart any service without your approval. So if you do not agree when asked, this script will collect all logs without touch in any running service."
     echo "Answering yes to those answers can help the support to troubleshoot the problem."
     echo "If is possible, please execute this script inside of Xorg session (GUI session), so we can collect some useful informations."
-    echo "To start collecting the logs, press enter or ctrl+x to quit."
+    echo "To start collecting the logs, press enter or ctrl+c to quit."
     read p
 }
 
