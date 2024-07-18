@@ -191,6 +191,19 @@ getGdmData()
     then
         sudo cp -r /etc/gdm $target_dir
     fi
+
+    sudo systemctl is-active gdm.service > "${target_dir}/active_status"
+    sudo systemctl is-enabled gdm.service > "${target_dir}/enabled_status"
+    sudo systemctl status gdm.service > "${target_dir}/current_status"
+    sudo journalctl -u gdm.service > "${target_dir}/gdm_journal"
+    
+    if pgrep -x "gdm" > /dev/null
+    then
+        echo "GDM process is running" > "${target_dir}/gdm_process_status"
+    else
+        echo "GDM process is not running" > "${target_dir}/gdm_process_status"
+        echo "GDM process is not running" > "${temp_dir}/gdm_is_not_running"
+    fi
 }
 
 getHwData()
@@ -387,6 +400,12 @@ getXorgData()
     sudo cp -r /var/log/Xorg* $target_dir
     
     target_dir="${temp_dir}/xorg_conf/"
+    echo "DISPLAY var content: >>> $DISPLAY <<<" > ${target_dir}/display_content_var
+    if [[ "${DISPLAY}x" == "x" ]]
+    then
+        echo "DISPLAY is empty" > ${temp_dir}/warnings/display_var_is_empty
+    fi
+
     if [ -d /etc/X11 ]
     then
         sudo cp -r /etc/X11 $target_dir
