@@ -228,7 +228,7 @@ getDcvDataAfterReboot()
 {
     user_answer="no"
     echo "The script want to reboot the dcvserver to collect some info after service reboot."
-    echo "Do you agree with DCV service restart?"
+    echo -e "${GREEN}Do you agree with DCV service restart?${NC}"
     echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
     read user_answer
     target_dir="${temp_dir}/dcv_log/after_reboot/"
