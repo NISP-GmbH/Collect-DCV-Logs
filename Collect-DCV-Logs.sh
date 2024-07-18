@@ -54,6 +54,15 @@ createTempDirs()
     done
 }
 
+getEnvironmentVars()
+{
+    echo "Collecting envirnment variables..."
+    target_dir="${temp_dir}/os_info/"
+    env > ${target_dir}/env_command
+    env > sort > ${target_dir}/env_sorted_command
+    printenv > ${target_dir}/printenv_command
+}
+
 getGdmData()
 {
     echo "Collecting all GDM relevant info..."
@@ -258,6 +267,7 @@ main()
     welcomeMessage
     createTempDirs
     getOsData
+    getEnvironmentVars
     getHwData
     getGdmData
     getXorgData

@@ -7,6 +7,7 @@ main()
     welcomeMessage
     createTempDirs
     getOsData
+    getEnvironmentVars
     getHwData
     getGdmData
     getXorgData
