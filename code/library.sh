@@ -114,7 +114,11 @@ createTempDirs()
 containsVersion() {
     local string="$1"
     local version="$2"
-    [[ "$string" =~ \.el$version[._] || "$string" =~ -$version\. || "$string" == *".$version" ]]
+    [[ "$string" =~ (\.|-)[0-9]+\.el$version([._]|$) || 
+       "$string" =~ \.el$version([._]|$) || 
+       "$string" =~ -$version\. || 
+       "$string" == *".$version" ||
+       "$string" =~ \.module\+el$version ]]
 }
 
 checkPackagesVersions()
@@ -137,14 +141,7 @@ checkPackagesVersions()
         do
             if ! containsVersion "$version_release" "$redhat_distro_based_version"
             then
-                for other_version in 7 8 9;
-                do
-                    if [ "$other_version" != "$redhat_distro_based_version" ] && containsVersion "$version_release" "$other_version"
-                    then
-                        echo "Package $package version $version_release might be from EL$other_version" >> ${target_dir}/packages_not_os_compatible
-                        break
-                    fi
-                done
+                echo "Package $package version $version_release might not be compatible with EL$redhat_distro_based_version" >> ${target_dir}/packages_not_os_compatible
             fi
         done
     fi
