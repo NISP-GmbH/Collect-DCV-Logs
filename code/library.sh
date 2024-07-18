@@ -290,7 +290,13 @@ runDcvgldiag()
             sudo dcvgladmin enable
             sudo systemctl isolate graphical.target
 
-            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log &> /dev/nul
+            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log &> /dev/null
+            
+            if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
+            then
+                dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
+                echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
+            fi
         else
             echo "user not approved to run dcvgldiag" > ${target_dir}/dcvgldiag_not_executed
         fi
@@ -394,6 +400,8 @@ getXorgData()
     if command -v X > /dev/null 2>&1
     then
         sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}xorg.conf.configure.stderr
+    else
+        echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found
     fi
 
     x_display=$(sudo ps aux | egrep '(X|Xorg|Xwayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
