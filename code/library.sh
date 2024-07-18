@@ -19,6 +19,78 @@ askToEncrypt()
     echo "Encrypting is not mandatory to send to the support."
 }
 
+checkLinuxDistro()
+{
+    echo "If you know what you are doing, please use --force option to avoid our Linux Distro compatibility test."
+
+    if [ -f /etc/redhat-release ]
+    then
+        release_info=$(cat /etc/redhat-release)
+
+        if echo $release_info | egrep -iq centos
+        then
+            redhat_distro_based="true"
+        else
+            if echo $release_info | egrep -iq almalinux
+            then
+                redhat_distro_based="true"
+            else
+                if echo $release_info | egrep -iq rocky
+                then
+                    redhat_distro_based="true"
+                fi
+            fi
+        fi
+
+        if [[ "${redhat_distro_based}" == "true" ]]
+        then
+            if echo "$release_info" | egrep -iq stream
+            then
+                redhat_distro_based_version=$(cat /etc/redhat-release  |  grep -oE '[0-9]+')
+            else
+                redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1)
+            fi
+
+            if [[ ! $redhat_distro_based_version =~ ^[789]$ ]]
+            then
+                echo "Your RedHat Based Linux distro version..."
+                cat /etc/redhat-release
+                echo "is not supported. Aborting..."
+                exit 18
+            fi
+        else
+            echo "Your RedHat Based Linux distro..."
+            cat /etc/redhat-release
+            echo "is not supported. Aborting..."
+            exit 19
+        fi
+    else
+        if [ -f /etc/debian_version ]
+        then
+            if cat /etc/issue | egrep -iq "ubuntu"
+            then
+                ubuntu_distro="true"
+                ubuntu_version=$(lsb_release -rs)
+                ubuntu_major_version=$(echo $ubuntu_version | cut -d '.' -f 1)
+                ubuntu_minor_version=$(echo $ubuntu_version | cut -d '.' -f 2)
+                if ( [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24  ]] ) && [[ $ubuntu_minor_version -ne 04 ]]
+                then
+                    echo "Your Ubuntu version >>> $ubuntu_version <<< is not supported. Aborting..."
+                    exit 20
+                fi
+            else
+                echo "Your Debian Based Linxu distro is not supported."
+                echo "Aborting..."
+                exit 21
+            fi
+        else
+            echo "Not able to find which distro you are using."
+            echo "Aborting..."
+            exit 22
+        fi
+    fi
+}
+
 compressLogCollection()
 {
     tar czf $compressed_file_name $temp_dir
@@ -32,10 +104,65 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
+    for new_dir in warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
+}
+
+containsVersion() {
+    local string="$1"
+    local version="$2"
+    [[ "$string" =~ \.el$version[._] || "$string" =~ -$version\. || "$string" == *".$version" ]]
+}
+
+checkPackagesVersions()
+{
+    echo "Checking packages versions..."
+    checkLinuxDistro
+    target_dir="${temp_dir}/warnings/"
+
+    if [[ "$ubuntu_distro" == "false" ]]
+    then
+        if [[ "$redhat_distro_based" == "false" ]]
+        then
+            echo "OS not supported" > ${target_dir}/os_not_supported
+        fi
+    fi
+
+    if [[ "$redhat_distro_based" == true ]]
+    then
+        rpm -qa --qf "%{NAME} %{VERSION}-%{RELEASE}\n" | while read -r package version_release
+        do
+            if ! containsVersion "$version_release" "$redhat_distro_based_version"
+            then
+                for other_version in 7 8 9;
+                do
+                    if [ "$other_version" != "$redhat_distro_based_version" ] && containsVersion "$version_release" "$other_version"
+                    then
+                        echo "Package $package version $version_release might be from EL$other_version" >> ${target_dir}/packages_not_os_compatible
+                    ibreak
+                    fi
+                done
+            fi
+        done
+    fi
+
+    if [[ "$ubuntu_distro" == "true" ]]
+    then
+        sudo dpkg -l | awk '/^ii/ {print $2}' | while read package
+        do
+            version=$(dpkg -s "$package" | grep '^Version:' | awk '{print $2}')
+    
+            if ! echo "$version" | grep -q "$ubuntu_version"
+            then
+                if echo "$version" | grep -qE '([0-9]{2}\.[0-9]{2})'
+                then
+                    echo "Package $package version $version might be from a different Ubuntu version" >> ${target_dir}/packages_not_os_compatible
+                fi
+            fi
+        done
+    fi
 }
 
 getEnvironmentVars()
@@ -240,4 +367,6 @@ getXorgData()
     else
         DISPLAY=${x_display} xrandr > ${target_dir}/xrandr
     fi
+
+    sudo DISPLAY=:0 XAUTHORITY=$(ps aux | grep "X.*\-auth" | grep -v grep | sed -n 's/.-auth \([^ ]\+\)./\1/p') glxinfo | grep -i "opengl.*version" > ${target_dir}/opengl_version
 }
