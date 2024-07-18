@@ -21,6 +21,7 @@ main()
     getNvidiaInfo
     getDcvData
     getDcvDataAfterReboot
+    runDcvgldiag
     compressLogCollection
     askToEncrypt
     removeTempDirs

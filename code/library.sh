@@ -104,7 +104,7 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
+    for new_dir in dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -270,6 +270,22 @@ getDcvData()
         sudo cp -r /var/log/dcv $target_dir
     else
         echo "not found" > $target_dir/var_log_dcv_not_found
+    fi
+}
+
+runDcvgldiag()
+{
+    target_dir="${temp_dir}/nvidia_info/"
+    sudo systemctl isolate multi-user.target
+    sudo dcvgladmin disable
+    sudo dcvgladmin enable
+    sudo systemctl isolate graphical.target
+
+    if command -v dcvgldiag > /dev/null 2>&1
+    then
+        sudo dcvgldiag -l /tmp/b &> /dev/nul
+    else
+        echo "dcvgldiag not installed" > ${temp_dir}/warnings/dcvgldiag_not_installed
     fi
 }
 
