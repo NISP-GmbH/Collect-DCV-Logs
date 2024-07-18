@@ -1,4 +1,7 @@
 # global vars
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
 temp_dir="tmp/"
 compressed_file_name="dcv_logs_collection.tar.gz"
 ubuntu_distro="false"
