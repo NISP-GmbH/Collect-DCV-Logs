@@ -142,7 +142,7 @@ checkPackagesVersions()
                     if [ "$other_version" != "$redhat_distro_based_version" ] && containsVersion "$version_release" "$other_version"
                     then
                         echo "Package $package version $version_release might be from EL$other_version" >> ${target_dir}/packages_not_os_compatible
-                    ibreak
+                        break
                     fi
                 done
             fi
