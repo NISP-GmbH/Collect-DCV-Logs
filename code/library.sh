@@ -282,7 +282,7 @@ runDcvgldiag()
     then
         user_answer="no"
         echo "The script want to reboot the Xorg to collect some info after service reboot."
-        echo "Do you agree with X service restart?"
+        echo "${GREEN}Do you agree with X service restart?${NC}"
         echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
         read user_answer
 
