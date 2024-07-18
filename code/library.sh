@@ -276,15 +276,27 @@ getDcvData()
 
 runDcvgldiag()
 {
-    target_dir="${temp_dir}/nvidia_info/"
-    sudo systemctl isolate multi-user.target
-    sudo dcvgladmin disable
-    sudo dcvgladmin enable
-    sudo systemctl isolate graphical.target
+    target_dir="${temp_dir}/dcvgldiag/"
 
     if command -v dcvgldiag > /dev/null 2>&1
     then
-        sudo dcvgldiag -l /tmp/b &> /dev/nul
+        user_answer="no"
+        echo "The script want to reboot the Xorg to collect some info after service reboot."
+        echo "Do you agree with X service restart?"
+        echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
+        read user_answer
+
+        if [[ "$user_answer" == "yes" ]]
+        then
+            sudo systemctl isolate multi-user.target
+            sudo dcvgladmin disable
+            sudo dcvgladmin enable
+            sudo systemctl isolate graphical.target
+
+            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log &> /dev/nul
+        else
+            echo "user not approved to run dcvgldiag" > ${target_dir}/dcvgldiag_not_executed
+        fi
     else
         echo "dcvgldiag not installed" > ${temp_dir}/warnings/dcvgldiag_not_installed
     fi
