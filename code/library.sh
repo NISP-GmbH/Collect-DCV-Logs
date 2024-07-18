@@ -104,7 +104,7 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
+    for new_dir in nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -270,6 +270,16 @@ getDcvData()
         sudo cp -r /var/log/dcv $target_dir
     else
         echo "not found" > $target_dir/var_log_dcv_not_found
+    fi
+}
+
+getNvidiaInfo()
+{
+    target_dir="${temp_dir}/nvidia_info/"
+    if command -v nvidia-smi > /dev/null 2>&1
+    then
+        nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query
+        nvidia-smi &> ${target_dir}/nvidia-smi_command
     fi
 }
 

@@ -18,6 +18,7 @@ main()
     getHwData
     getGdmData
     getXorgData
+    getNvidiaInfo
     getDcvData
     getDcvDataAfterReboot
     compressLogCollection
