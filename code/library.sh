@@ -433,9 +433,9 @@ getXorgData()
         DISPLAY=${x_display} xrandr > ${target_dir}/xrandr
 
         if [ -n "$XAUTH" ]; then
-            sudo DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo | grep -i "opengl.*version" > "${target_dir}/opengl_version" 2>"${target_dir}/opengl_error"
+            sudo DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo | grep -i "opengl.*version" > "${target_dir}/opengl_version" 2>"${target_dir}/opengl_possible_errors"
         else
-            sudo DISPLAY=${x_display} glxinfo | grep -i "opengl.*version" > "${target_dir}/opengl_version" 2>"${target_dir}/opengl_error"
+            sudo DISPLAY=${x_display} glxinfo | grep -i "opengl.*version" > "${target_dir}/opengl_version" 2>"${target_dir}/opengl_possible_errors"
         fi
     fi
 
