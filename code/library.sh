@@ -22,7 +22,8 @@ askToEncrypt()
 
 checkLinuxDistro()
 {
-    echo "If you know what you are doing, please use --force option to avoid our Linux Distro compatibility test."
+    echo "Checking your Linux distribution..."
+    echo "Note: If you know what you are doing, please use --force option to avoid our Linux Distro compatibility test."
 
     if [ -f /etc/redhat-release ]
     then
@@ -80,7 +81,7 @@ checkLinuxDistro()
                     exit 20
                 fi
             else
-                echo "Your Debian Based Linxu distro is not supported."
+                echo "Your Debian Based Linux distro is not supported."
                 echo "Aborting..."
                 exit 21
             fi
