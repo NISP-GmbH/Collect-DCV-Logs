@@ -203,7 +203,7 @@ getGdmData()
         echo "GDM process is running" > "${target_dir}/gdm_process_status"
     else
         echo "GDM process is not running" > "${target_dir}/gdm_process_status"
-        echo "GDM process is not running" > "${temp_dir}/gdm_is_not_running"
+        echo "GDM process is not running" > "${temp_dir}/warnings/gdm_is_not_running"
     fi
 }
 
