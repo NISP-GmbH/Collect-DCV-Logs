@@ -149,18 +149,42 @@ checkPackagesVersions()
 
     if [[ "$ubuntu_distro" == "true" ]]
     then
-        sudo dpkg -l | awk '/^ii/ {print $2}' | while read package
-        do
-            version=$(dpkg -s "$package" | grep '^Version:' | awk '{print $2}')
-    
-            if ! echo "$version" | grep -q "$ubuntu_version"
-            then
-                if echo "$version" | grep -qE '([0-9]{2}\.[0-9]{2})'
-                then
-                    echo "Package $package version $version might be from a different Ubuntu version" >> ${target_dir}/packages_not_os_compatible
-                fi
+        dcv_packages=(
+        "nice-dcv-gl"
+        "nice-dcv-gltest"
+        "nice-dcv-server"
+        "nice-dcv-session-manager-agent"
+        "nice-dcv-session-manager-broker"
+        "nice-dcv-simple-external-authenticator"
+        "nice-dcv-web-viewer"
+        "nice-xdcv"
+        )
+
+    for package in "${dcv_packages[@]}"
+    do
+        if dpkg -s "$package" &> /dev/null
+        then
+            version=$(dpkg-query -W -f='${Version}' "$package")
+            
+            year=$(echo "$version" | cut -d'.' -f1)
+            
+            if [[ "$ubuntu_version" == "20.04" ]]; then
+                min_year=2020
+            elif [[ "$ubuntu_version" == "22.04" ]]; then
+                min_year=2022
+            else
+                min_year=$(($(date +%Y) - 1))  # Default to last year for unknown Ubuntu versions
             fi
-        done
+
+            if [[ "$year" -lt "$min_year" ]]; then
+                echo "Warning: $package version $version might be too old for Ubuntu $ubuntu_version. Expected minimum year: $min_year" >> "${target_dir}/dcv_packages_version_mismatch"
+            else
+                echo "Note: $package version $version appears to be compatible with Ubuntu $ubuntu_version" >> "${target_dir}/dcv_packages_version_info"
+            fi
+        else
+            echo "Package $package is not installed" >> "${target_dir}/dcv_packages_not_installed"
+        fi
+    done
     fi
 }
 
