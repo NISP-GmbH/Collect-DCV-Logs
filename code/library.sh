@@ -124,7 +124,7 @@ containsVersion() {
 
 checkPackagesVersions()
 {
-    echo "Checking packages versions..."
+    echo "Checking packages versions... depending of your server it can take up to 2 minutes..."
     checkLinuxDistro
     target_dir="${temp_dir}/warnings/"
 
