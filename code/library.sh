@@ -448,6 +448,12 @@ getXorgData()
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found
     fi
 
+    detect_wayland=$(sudo ps aux | egrep -i 'wayland')
+    if [[ "${detect_wayland}x" != "x" ]]
+    then
+        echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running
+    fi
+
     XAUTH=$(ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
     x_display=$(sudo ps aux | egrep '(X|Xorg|Xwayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
