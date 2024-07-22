@@ -25,6 +25,7 @@ main()
     getKerberosData
     getSssdData
     getNsswitchData
+    getPamData
     getXorgData
     getNvidiaInfo
     getDcvData
