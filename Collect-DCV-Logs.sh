@@ -122,7 +122,7 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -211,6 +211,17 @@ getEnvironmentVars()
     env > ${target_dir}/env_command
     env > sort > ${target_dir}/env_sorted_command
     printenv > ${target_dir}/printenv_command
+}
+
+getPamData()
+{
+    echo "Collecting all PAM relevant info..."
+    target_dir="${temp_dir}/pam_conf/"
+
+    if [ -d /etc/pam.d ]
+    then
+        cp -r /etc/pam.d ${target_dir}
+    fi
 }
 
 getKerberosData()
@@ -558,6 +569,7 @@ main()
     getKerberosData
     getSssdData
     getNsswitchData
+    getPamData
     getXorgData
     getNvidiaInfo
     getDcvData
