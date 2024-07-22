@@ -22,6 +22,9 @@ main()
     getEnvironmentVars
     getHwData
     getGdmData
+    getKerberosData
+    getSssdData
+    getNsswitchData
     getXorgData
     getNvidiaInfo
     getDcvData

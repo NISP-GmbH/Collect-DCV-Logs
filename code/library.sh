@@ -106,7 +106,7 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
+    for new_dir in sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -196,6 +196,50 @@ getEnvironmentVars()
     env > sort > ${target_dir}/env_sorted_command
     printenv > ${target_dir}/printenv_command
 }
+
+getKerberosData()
+{
+    echo "Collecting all Kerberos relevant info..."
+    target_dir="${temp_dir}/kerberos_conf/"
+
+    if [ -f /etc/krb5.conf ]
+    then
+        sudo cp /etc/krb5.conf $target_dir
+    fi
+}
+
+getSssdData()
+{
+    echo "Collecting all SSSD relevant info..."
+    target_dir="${temp_dir}/sssd_conf/"
+
+    if [ -d /etc/sssd/ ]
+    then
+        sudo cp -a /etc/sssd ${target_dir}
+    fi
+
+    detect_sssd=$(sudo ps aux | egrep -i 'sssd')
+    if [[ "${detect_sssd}x" != "x" ]]
+    then
+        echo "$detect_sssd" > $temp_dir/warnings/sssd_is_running
+    fi
+
+    target_dir="${temp_dir}/sssd_log"
+    if [ -f /var/log/sssd ]
+    then
+        sudo cp -a /var/log/sssd ${target_dir}
+    fi
+}
+
+getNsswitchData()
+{
+    echo "Collecting all NSSwitch relevant info..."
+    target_dir="${temp_dir}/nsswitch_conf/"
+
+    if [ -d /etc/nsswitch.conf ]
+    then
+        sudo cp /etc/nsswitch.conf ${target_dir}/
+    fi
 
 getGdmData()
 {
