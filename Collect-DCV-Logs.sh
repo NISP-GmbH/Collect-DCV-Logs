@@ -231,7 +231,7 @@ getSssdData()
 
     if [ -d /etc/sssd/ ]
     then
-        sudo cp -a /etc/sssd ${target_dir}
+        sudo cp -r /etc/sssd ${target_dir}
     fi
 
     detect_sssd=$(sudo ps aux | egrep -i 'sssd')
@@ -243,7 +243,7 @@ getSssdData()
     target_dir="${temp_dir}/sssd_log"
     if [ -f /var/log/sssd ]
     then
-        sudo cp -a /var/log/sssd ${target_dir}
+        sudo cp -r /var/log/sssd ${target_dir}
     fi
 }
 
