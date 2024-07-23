@@ -204,7 +204,7 @@ getPamData()
 
     if [ -d /etc/pam.d ]
     then
-        cp -r /etc/pam.d ${target_dir}
+        sudo cp -r /etc/pam.d ${target_dir}
     fi
 }
 
