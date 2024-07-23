@@ -267,6 +267,7 @@ getNsswitchData()
     then
         sudo cp /etc/nsswitch.conf ${target_dir}/
     fi
+}
 
 getGdmData()
 {
