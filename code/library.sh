@@ -364,9 +364,12 @@ getDcvData()
         echo "not found" > $target_dir/var_log_dcv_not_found
     fi
 
-    if cat /var/log/dcv/dcv.log | egrep -iq "No license for product"
+    if [ -f /var/log/dcv/dcv.log ]
     then
-        echo "No license for product" > ${temp_dir}/warnings/dcv_not_found_valid_license
+        if cat /var/log/dcv/dcv.log | egrep -iq "No license for product"
+        then
+            echo "No license for product" > ${temp_dir}/warnings/dcv_not_found_valid_license
+        fi
     fi
 }
 
