@@ -509,7 +509,7 @@ getXorgData()
 
     if command -v X > /dev/null 2>&1
     then
-        sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}xorg.conf.configure.stderr
+        sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}/xorg.conf.configure.stderr
     else
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found
     fi
@@ -529,9 +529,9 @@ getXorgData()
         DISPLAY=${x_display} xrandr > ${target_dir}/xrandr_stdout 2> ${target_dir}/xrandr_stderr
 
         if [ -n "$XAUTH" ]; then
-            sudo DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo 2>"${target_dir}/opengl_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
+            sudo -E DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo 2>"${target_dir}/opengl_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
         else
-            sudo DISPLAY=${x_display} glxinfo 2>"${target_dir}/glxinfo_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
+            sudo -E DISPLAY=${x_display} glxinfo 2>"${target_dir}/glxinfo_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
         fi
     fi
 }
