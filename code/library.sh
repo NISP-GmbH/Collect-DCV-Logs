@@ -470,6 +470,9 @@ getOsData()
         sudo rpm -qa > ${target_dir}/rpm_packages_list 2>&1
     fi
 
+    ps aux --forest > ${target_dir}/ps_aux_--forest 2>&1
+    pstree -p > ${target_dir}/pstree 2>&1
+
     target_dir="${temp_dir}/os_log/"
     sudo cp /var/log/dmesg* $target_dir > /dev/null 2>&1
     sudo cp /var/log/messages* $target_dir > /dev/null 2>&1
