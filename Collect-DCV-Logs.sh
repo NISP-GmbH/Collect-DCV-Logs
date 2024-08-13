@@ -486,6 +486,9 @@ getOsData()
         sudo rpm -qa > ${target_dir}/rpm_packages_list 2>&1
     fi
 
+    ps aux --forest > ${target_dir}/ps_aux_--forest 2>&1
+    pstree -p > ${target_dir}/pstree 2>&1
+
     target_dir="${temp_dir}/os_log/"
     sudo cp /var/log/dmesg* $target_dir > /dev/null 2>&1
     sudo cp /var/log/messages* $target_dir > /dev/null 2>&1
@@ -496,6 +499,22 @@ getOsData()
     sudo cp -r /var/log/secure* $target_dir > /dev/null 2>&1
     sudo cp -r /var/log/boot* $target_dir > /dev/null 2>&1
     sudo cp -r /var/log/kdump* $target_dir > /dev/null 2>&1
+
+    if [ -f $target_dir/dmesg ]
+    then
+        if egrep -iq "oom" $target_dir/dmesg > /dev/null 2>&1
+        then
+            cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_dmesg
+        fi
+    fi
+
+    if [ -f $target_dir/messages ]
+    then
+        if egrep -iq "oom" $target_dir/messages > /dev/null 2>&1
+        then
+            cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_messages
+        fi
+    fi
 
     target_dir="${temp_dir}/journal_log"
     sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log 2>&1
@@ -533,7 +552,7 @@ getXorgData()
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
     fi
 
-    detect_wayland=$(sudo ps aux | egrep -i 'wayland')
+    detect_wayland=$(sudo ps aux | egrep -i 'wayland' | grep -v grep)
     if [[ "${detect_wayland}x" != "x" ]]
     then
         echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running 2>&1
