@@ -520,7 +520,7 @@ getXorgData()
         echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running
     fi
 
-    XAUTH=$(ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
+    XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
     x_display=$(sudo ps aux | egrep '(X|Xorg|Xwayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
     then
