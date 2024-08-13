@@ -484,6 +484,22 @@ getOsData()
     sudo cp -r /var/log/boot* $target_dir > /dev/null 2>&1
     sudo cp -r /var/log/kdump* $target_dir > /dev/null 2>&1
 
+    if [ -f $target_dir/dmesg ]
+    then
+        if egrep -iq "oom" $target_dir/dmesg > /dev/null 2>&1
+        then
+            cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_dmesg
+        fi
+    fi
+
+    if [ -f $target_dir/messages ]
+    then
+        if egrep -iq "oom" $target_dir/messages > /dev/null 2>&1
+        then
+            cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_messages
+        fi
+    fi
+
     target_dir="${temp_dir}/journal_log"
     sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log 2>&1
     sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
