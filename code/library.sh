@@ -308,7 +308,7 @@ getHwData()
 
     if command -v dmidecode > /dev/null 2>&1
     then
-        sudo dmidecode > ${target_dir}/dmidecode        
+        sudo dmidecode > ${target_dir}/dmidecode 2>&1
     else
         echo "dmidecode not found" > ${target_dir}/not_found_dmidecode 
 
@@ -363,6 +363,11 @@ getDcvData()
     else
         echo "not found" > $target_dir/var_log_dcv_not_found
     fi
+
+    if cat /var/log/dcv/dcv.log | egrep -iq "No license for product"
+    then
+        echo "No license for product" > ${temp_dir}/warnings/dcv_not_found_valid_license
+    fi
 }
 
 runDcvgldiag()
@@ -384,12 +389,17 @@ runDcvgldiag()
             sudo dcvgladmin enable
             sudo systemctl isolate graphical.target
 
-            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log &> /dev/null
+            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
             
             if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
             then
                 dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
                 echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
+            fi
+
+            if cat ${target_dir}/dcvgldiag.log | egrep -iq "Detected nouveau kernel module"
+            then
+                echo "Detected nouveau kernel module" > ${temp_dir}/warnings/nouveau_kernel_module_found
             fi
         else
             echo "user not approved to run dcvgldiag" > ${target_dir}/dcvgldiag_not_executed
@@ -404,7 +414,7 @@ getNvidiaInfo()
     target_dir="${temp_dir}/nvidia_info/"
     if command -v nvidia-smi > /dev/null 2>&1
     then
-        nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query
+        nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query > /dev/null 2>&1
         nvidia-smi &> ${target_dir}/nvidia-smi_command
     fi
 }
@@ -417,7 +427,7 @@ getOsData()
 
     if command -v lsb_release > /dev/null 2>&1
     then
-        sudo lsb_release -a > $target_dir/lsb_release_-a
+        sudo lsb_release -a > $target_dir/lsb_release_-a 2>&1
     else
         echo "lsb_release not found" > $target_dir/not_found_lsb_release
     fi
@@ -454,7 +464,7 @@ getOsData()
 
     if [ -f /usr/bin/rpm ]
     then
-        sudo rpm -qa > ${target_dir}/rpm_packages_list
+        sudo rpm -qa > ${target_dir}/rpm_packages_list 2>&1
     fi
 
     target_dir="${temp_dir}/os_log/"
@@ -469,9 +479,9 @@ getOsData()
     sudo cp -r /var/log/kdump* $target_dir > /dev/null 2>&1
 
     target_dir="${temp_dir}/journal_log"
-    sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
-    sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal
-    sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal
+    sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log 2>&1
+    sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
+    sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
 }
 
 getXorgData()
