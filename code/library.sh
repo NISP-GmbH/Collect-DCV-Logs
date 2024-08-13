@@ -526,13 +526,12 @@ getXorgData()
     then
         echo "not possible to execute xrandr: display not found" > ${target_dir}/xrandr_can_not_be_executed
     else
-        DISPLAY=${x_display} xrandr > ${target_dir}/xrandr
+        DISPLAY=${x_display} xrandr > ${target_dir}/xrandr_stdout 2> ${target_dir}/xrandr_stderr
 
         if [ -n "$XAUTH" ]; then
-            sudo DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo | grep -i "opengl.*version" > "${target_dir}/opengl_version" 2>"${target_dir}/opengl_possible_errors"
+            sudo DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo 2>"${target_dir}/opengl_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
         else
-            sudo DISPLAY=${x_display} glxinfo | grep -i "opengl.*version" > "${target_dir}/opengl_version" 2>"${target_dir}/opengl_possible_errors"
+            sudo DISPLAY=${x_display} glxinfo 2>"${target_dir}/glxinfo_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
         fi
     fi
-
 }
