@@ -204,7 +204,7 @@ getPamData()
 
     if [ -d /etc/pam.d ]
     then
-        sudo cp -r /etc/pam.d ${target_dir}
+        sudo cp -r /etc/pam.d ${target_dir} > /dev/null 2>&1
     fi
 }
 
@@ -215,7 +215,7 @@ getKerberosData()
 
     if [ -f /etc/krb5.conf ]
     then
-        sudo cp /etc/krb5.conf $target_dir
+        sudo cp /etc/krb5.conf $target_dir > /dev/null 2>&1
     fi
 }
 
@@ -226,7 +226,7 @@ getSssdData()
 
     if [ -d /etc/sssd/ ]
     then
-        sudo cp -r /etc/sssd ${target_dir}
+        sudo cp -r /etc/sssd ${target_dir} > /dev/null 2>&1
     fi
 
     detect_sssd=$(sudo ps aux | egrep -i 'sssd')
@@ -238,7 +238,7 @@ getSssdData()
     target_dir="${temp_dir}/sssd_log"
     if [ -f /var/log/sssd ]
     then
-        sudo cp -r /var/log/sssd ${target_dir}
+        sudo cp -r /var/log/sssd ${target_dir}> /dev/null 2>&1
     fi
 }
 
@@ -249,7 +249,7 @@ getNsswitchData()
 
     if [ -d /etc/nsswitch.conf ]
     then
-        sudo cp /etc/nsswitch.conf ${target_dir}/
+        sudo cp /etc/nsswitch.conf ${target_dir}/ > /dev/null 2>&1
     fi
 }
 
@@ -259,18 +259,18 @@ getGdmData()
     target_dir="${temp_dir}/gdm_log/"
     if [ -f /var/log/gdm ]
     then
-        sudo cp -r /var/log/gdm $target_dir
+        sudo cp -r /var/log/gdm $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /var/log/gdm3 ]
     then
-        sudo cp -r /var/log/gdm3 $target_dir
+        sudo cp -r /var/log/gdm3 $target_dir > /dev/null 2>&1
     fi
 
     target_dir="${temp_dir}/gdm_conf/"
     if [ -f /etc/gdm/ ]
     then
-        sudo cp -r /etc/gdm $target_dir
+        sudo cp -r /etc/gdm $target_dir > /dev/null 2>&1
     fi
 
     sudo systemctl is-active gdm.service > "${target_dir}/active_status"
@@ -331,7 +331,7 @@ getDcvDataAfterReboot()
     
         if [ -d /var/log/dcv ]
         then
-            sudo cp -r /var/log/dcv ${target_dir}
+            sudo cp -r /var/log/dcv ${target_dir} > /dev/null 2>&1
         else
             echo "not found" > $target_dir/var_log_dcv_not_found
             sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
@@ -350,7 +350,7 @@ getDcvData()
 
     if [ -d /etc/dcv ]
     then
-        sudo cp -r /etc/dcv $target_dir
+        sudo cp -r /etc/dcv $target_dir > /dev/null 2>&1
     else
         echo "not found" > $target_dir/etc_dcv_dir_not_found
     fi    
@@ -359,7 +359,7 @@ getDcvData()
     
     if [ -d /var/log/dcv ]
     then
-        sudo cp -r /var/log/dcv $target_dir
+        sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
     else
         echo "not found" > $target_dir/var_log_dcv_not_found
     fi
@@ -434,32 +434,32 @@ getOsData()
 
     if command -v getenforce > /dev/null 2>&1
     then
-        sudo getenforce > $target_dir/getenforce_result
+        sudo getenforce > $target_dir/getenforce_result 2>&1
     fi
 
     if [ -f /etc/issue ]
     then
-        sudo cp /etc/issue $target_dir 
+        sudo cp /etc/issue $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /etc/debian_version ]
     then
-        sudo cp /etc/debian_version $target_dir
+        sudo cp /etc/debian_version $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /etc/redhat-release ]
     then
-        sudo cp /etc/redhat-release $target_dir
+        sudo cp /etc/redhat-release $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /etc/centos-release ]
     then
-        sudo cp /etc/centos-release $target_dir
+        sudo cp /etc/centos-release $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /usr/lib/apt ]
     then
-        sudo dpkg -a > ${target_dir}/deb_packages_list
+        sudo dpkg -a > ${target_dir}/deb_packages_list 2>&1
     fi
 
     if [ -f /usr/bin/rpm ]
@@ -488,43 +488,43 @@ getXorgData()
 {
     echo "Collecting all Xorg relevant data..."
     target_dir="${temp_dir}/xorg_log/"
-    sudo cp -r /var/log/Xorg* $target_dir
+    sudo cp -r /var/log/Xorg* $target_dir > /dev/null 2>&1
     
     target_dir="${temp_dir}/xorg_conf/"
-    echo "DISPLAY var content: >>> $DISPLAY <<<" > ${target_dir}/display_content_var
+    echo "DISPLAY var content: >>> $DISPLAY <<<" > ${target_dir}/display_content_var 2>&1
     if [[ "${DISPLAY}x" == "x" ]]
     then
-        echo "DISPLAY is empty" > ${temp_dir}/warnings/display_var_is_empty
+        echo "DISPLAY is empty" > ${temp_dir}/warnings/display_var_is_empty 2>&1
     fi
 
     if [ -d /etc/X11 ]
     then
-        sudo cp -r /etc/X11 $target_dir
+        sudo cp -r /etc/X11 $target_dir > /dev/null 2>&1
     fi
 
     if [ -d /usr/share/X11 ]
     then
-        sudo cp -r /usr/share/X11 $target_dir
+        sudo cp -r /usr/share/X11 $target_dir > /dev/null 2>&1
     fi
 
     if command -v X > /dev/null 2>&1
     then
         sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}/xorg.conf.configure.stderr
     else
-        echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found
+        echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
     fi
 
     detect_wayland=$(sudo ps aux | egrep -i 'wayland')
     if [[ "${detect_wayland}x" != "x" ]]
     then
-        echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running
+        echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running 2>&1
     fi
 
     XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
     x_display=$(sudo ps aux | egrep '(X|Xorg|Xwayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
     then
-        echo "not possible to execute xrandr: display not found" > ${target_dir}/xrandr_can_not_be_executed
+        echo "not possible to execute xrandr: display not found" > ${target_dir}/xrandr_can_not_be_executed 2>&1
     else
         if command -v xrandr > /dev/null 2>&1
         then
