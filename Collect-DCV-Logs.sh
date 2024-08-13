@@ -220,7 +220,7 @@ getPamData()
 
     if [ -d /etc/pam.d ]
     then
-        sudo cp -r /etc/pam.d ${target_dir}
+        sudo cp -r /etc/pam.d ${target_dir} > /dev/null 2>&1
     fi
 }
 
@@ -231,7 +231,7 @@ getKerberosData()
 
     if [ -f /etc/krb5.conf ]
     then
-        sudo cp /etc/krb5.conf $target_dir
+        sudo cp /etc/krb5.conf $target_dir > /dev/null 2>&1
     fi
 }
 
@@ -242,7 +242,7 @@ getSssdData()
 
     if [ -d /etc/sssd/ ]
     then
-        sudo cp -r /etc/sssd ${target_dir}
+        sudo cp -r /etc/sssd ${target_dir} > /dev/null 2>&1
     fi
 
     detect_sssd=$(sudo ps aux | egrep -i 'sssd')
@@ -254,7 +254,7 @@ getSssdData()
     target_dir="${temp_dir}/sssd_log"
     if [ -f /var/log/sssd ]
     then
-        sudo cp -r /var/log/sssd ${target_dir}
+        sudo cp -r /var/log/sssd ${target_dir}> /dev/null 2>&1
     fi
 }
 
@@ -265,7 +265,7 @@ getNsswitchData()
 
     if [ -d /etc/nsswitch.conf ]
     then
-        sudo cp /etc/nsswitch.conf ${target_dir}/
+        sudo cp /etc/nsswitch.conf ${target_dir}/ > /dev/null 2>&1
     fi
 }
 
@@ -275,18 +275,18 @@ getGdmData()
     target_dir="${temp_dir}/gdm_log/"
     if [ -f /var/log/gdm ]
     then
-        sudo cp -r /var/log/gdm $target_dir
+        sudo cp -r /var/log/gdm $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /var/log/gdm3 ]
     then
-        sudo cp -r /var/log/gdm3 $target_dir
+        sudo cp -r /var/log/gdm3 $target_dir > /dev/null 2>&1
     fi
 
     target_dir="${temp_dir}/gdm_conf/"
     if [ -f /etc/gdm/ ]
     then
-        sudo cp -r /etc/gdm $target_dir
+        sudo cp -r /etc/gdm $target_dir > /dev/null 2>&1
     fi
 
     sudo systemctl is-active gdm.service > "${target_dir}/active_status"
@@ -324,7 +324,7 @@ getHwData()
 
     if command -v dmidecode > /dev/null 2>&1
     then
-        sudo dmidecode > ${target_dir}/dmidecode        
+        sudo dmidecode > ${target_dir}/dmidecode 2>&1
     else
         echo "dmidecode not found" > ${target_dir}/not_found_dmidecode 
 
@@ -347,7 +347,7 @@ getDcvDataAfterReboot()
     
         if [ -d /var/log/dcv ]
         then
-            sudo cp -r /var/log/dcv ${target_dir}
+            sudo cp -r /var/log/dcv ${target_dir} > /dev/null 2>&1
         else
             echo "not found" > $target_dir/var_log_dcv_not_found
             sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
@@ -366,7 +366,7 @@ getDcvData()
 
     if [ -d /etc/dcv ]
     then
-        sudo cp -r /etc/dcv $target_dir
+        sudo cp -r /etc/dcv $target_dir > /dev/null 2>&1
     else
         echo "not found" > $target_dir/etc_dcv_dir_not_found
     fi    
@@ -375,9 +375,17 @@ getDcvData()
     
     if [ -d /var/log/dcv ]
     then
-        sudo cp -r /var/log/dcv $target_dir
+        sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
     else
         echo "not found" > $target_dir/var_log_dcv_not_found
+    fi
+
+    if [ -f /var/log/dcv/dcv.log ]
+    then
+        if cat /var/log/dcv/dcv.log | egrep -iq "No license for product"
+        then
+            echo "No license for product" > ${temp_dir}/warnings/dcv_not_found_valid_license
+        fi
     fi
 }
 
@@ -400,12 +408,17 @@ runDcvgldiag()
             sudo dcvgladmin enable
             sudo systemctl isolate graphical.target
 
-            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log &> /dev/null
+            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
             
             if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
             then
                 dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
                 echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
+            fi
+
+            if cat ${target_dir}/dcvgldiag.log | egrep -iq "Detected nouveau kernel module"
+            then
+                echo "Detected nouveau kernel module" > ${temp_dir}/warnings/nouveau_kernel_module_found
             fi
         else
             echo "user not approved to run dcvgldiag" > ${target_dir}/dcvgldiag_not_executed
@@ -420,7 +433,7 @@ getNvidiaInfo()
     target_dir="${temp_dir}/nvidia_info/"
     if command -v nvidia-smi > /dev/null 2>&1
     then
-        nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query
+        nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query > /dev/null 2>&1
         nvidia-smi &> ${target_dir}/nvidia-smi_command
     fi
 }
@@ -433,44 +446,44 @@ getOsData()
 
     if command -v lsb_release > /dev/null 2>&1
     then
-        sudo lsb_release -a > $target_dir/lsb_release_-a
+        sudo lsb_release -a > $target_dir/lsb_release_-a 2>&1
     else
         echo "lsb_release not found" > $target_dir/not_found_lsb_release
     fi
 
     if command -v getenforce > /dev/null 2>&1
     then
-        sudo getenforce > $target_dir/getenforce_result
+        sudo getenforce > $target_dir/getenforce_result 2>&1
     fi
 
     if [ -f /etc/issue ]
     then
-        sudo cp /etc/issue $target_dir 
+        sudo cp /etc/issue $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /etc/debian_version ]
     then
-        sudo cp /etc/debian_version $target_dir
+        sudo cp /etc/debian_version $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /etc/redhat-release ]
     then
-        sudo cp /etc/redhat-release $target_dir
+        sudo cp /etc/redhat-release $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /etc/centos-release ]
     then
-        sudo cp /etc/centos-release $target_dir
+        sudo cp /etc/centos-release $target_dir > /dev/null 2>&1
     fi
 
     if [ -f /usr/lib/apt ]
     then
-        sudo dpkg -a > ${target_dir}/deb_packages_list
+        sudo dpkg -a > ${target_dir}/deb_packages_list 2>&1
     fi
 
     if [ -f /usr/bin/rpm ]
     then
-        sudo rpm -qa > ${target_dir}/rpm_packages_list
+        sudo rpm -qa > ${target_dir}/rpm_packages_list 2>&1
     fi
 
     target_dir="${temp_dir}/os_log/"
@@ -485,62 +498,68 @@ getOsData()
     sudo cp -r /var/log/kdump* $target_dir > /dev/null 2>&1
 
     target_dir="${temp_dir}/journal_log"
-    sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
-    sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal
-    sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal
+    sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log 2>&1
+    sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
+    sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
 }
 
 getXorgData()
 {
     echo "Collecting all Xorg relevant data..."
     target_dir="${temp_dir}/xorg_log/"
-    sudo cp -r /var/log/Xorg* $target_dir
+    sudo cp -r /var/log/Xorg* $target_dir > /dev/null 2>&1
     
     target_dir="${temp_dir}/xorg_conf/"
-    echo "DISPLAY var content: >>> $DISPLAY <<<" > ${target_dir}/display_content_var
+    echo "DISPLAY var content: >>> $DISPLAY <<<" > ${target_dir}/display_content_var 2>&1
     if [[ "${DISPLAY}x" == "x" ]]
     then
-        echo "DISPLAY is empty" > ${temp_dir}/warnings/display_var_is_empty
+        echo "DISPLAY is empty" > ${temp_dir}/warnings/display_var_is_empty 2>&1
     fi
 
     if [ -d /etc/X11 ]
     then
-        sudo cp -r /etc/X11 $target_dir
+        sudo cp -r /etc/X11 $target_dir > /dev/null 2>&1
     fi
 
     if [ -d /usr/share/X11 ]
     then
-        sudo cp -r /usr/share/X11 $target_dir
+        sudo cp -r /usr/share/X11 $target_dir > /dev/null 2>&1
     fi
 
     if command -v X > /dev/null 2>&1
     then
-        sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}xorg.conf.configure.stderr
+        sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}/xorg.conf.configure.stderr
     else
-        echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found
+        echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
     fi
 
     detect_wayland=$(sudo ps aux | egrep -i 'wayland')
     if [[ "${detect_wayland}x" != "x" ]]
     then
-        echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running
+        echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running 2>&1
     fi
 
-    XAUTH=$(ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
+    XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
     x_display=$(sudo ps aux | egrep '(X|Xorg|Xwayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
     then
-        echo "not possible to execute xrandr: display not found" > ${target_dir}/xrandr_can_not_be_executed
+        echo "not possible to execute xrandr: display not found" > ${target_dir}/xrandr_can_not_be_executed 2>&1
     else
-        DISPLAY=${x_display} xrandr > ${target_dir}/xrandr
+        if command -v xrandr > /dev/null 2>&1
+        then
+            DISPLAY=${x_display} xrandr > ${target_dir}/xrandr_stdout 2> ${target_dir}/xrandr_stderr
+        fi
 
-        if [ -n "$XAUTH" ]; then
-            sudo DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo | grep -i "opengl.*version" > "${target_dir}/opengl_version" 2>"${target_dir}/opengl_possible_errors"
-        else
-            sudo DISPLAY=${x_display} glxinfo | grep -i "opengl.*version" > "${target_dir}/opengl_version" 2>"${target_dir}/opengl_possible_errors"
+        if command -v glxinfo > /dev/null 2>&1
+        then
+            if [ -n "$XAUTH" ]
+            then
+                sudo -E DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo 2>"${target_dir}/opengl_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
+            else
+                sudo -E DISPLAY=${x_display} glxinfo 2>"${target_dir}/glxinfo_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
+            fi
         fi
     fi
-
 }
 
 # global vars
