@@ -273,10 +273,10 @@ getGdmData()
         sudo cp -r /etc/gdm $target_dir > /dev/null 2>&1
     fi
 
-    sudo systemctl is-active gdm.service > "${target_dir}/active_status"
-    sudo systemctl is-enabled gdm.service > "${target_dir}/enabled_status"
-    sudo systemctl status gdm.service > "${target_dir}/current_status"
-    sudo journalctl -u gdm.service > "${target_dir}/gdm_journal"
+    sudo systemctl is-active gdm.service > "${target_dir}/systemctl_active_status"
+    sudo systemctl is-enabled gdm.service > "${target_dir}/systemctl_enabled_status"
+    sudo systemctl status gdm.service > "${target_dir}/systemctl_current_status"
+    sudo journalctl -u gdm.service > "${target_dir}/systemctl_gdm_journal"
     
     if pgrep -x "gdm" > /dev/null
     then
