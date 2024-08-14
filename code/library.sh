@@ -517,6 +517,7 @@ getXorgData()
     if [[ "${DISPLAY}x" == "x" ]]
     then
         echo "DISPLAY is empty" > ${temp_dir}/warnings/display_var_is_empty 2>&1
+        echo "The user executing is >>> $USER <<<" >> ${temp_dir}/warnings/display_var_is_empty 2>&1
     fi
 
     if [ -d /etc/X11 ]
