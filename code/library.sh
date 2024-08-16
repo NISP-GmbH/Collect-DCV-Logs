@@ -193,7 +193,7 @@ getEnvironmentVars()
     echo "Collecting environment variables..."
     target_dir="${temp_dir}/os_info/"
     env > ${target_dir}/env_command
-    env > sort > ${target_dir}/env_sorted_command
+    env | sort > ${target_dir}/env_sorted_command
     printenv > ${target_dir}/printenv_command
 }
 
