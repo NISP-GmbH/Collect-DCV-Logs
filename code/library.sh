@@ -537,7 +537,12 @@ getXorgData()
 
     if command -v X > /dev/null 2>&1
     then
-        sudo X -configure > ${target_dir}/xorg.conf.configure.stdout 2> ${target_dir}/xorg.conf.configure.stderr
+        if pgrep X > /dev/null
+        then
+            echo "X is currently running. Cannot execute X -configure." > "${temp_dir}/warnings/X_is_running" 2>&1
+        else
+            sudo X -configure > "${target_dir}/xorg.conf.configure.stdout" 2> "${target_dir}/xorg.conf.configure.stderr"
+        fi
     else
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
     fi
