@@ -14,4 +14,4 @@ or
 sudo bash -c "$(wget --no-check-certificate -qO- https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh)"
 ```
 
-Important: The script will not stop/start or touch in any service without your permission. When needed, the script will ask and you can say no if you do not agree.
+Important: The script will not stop/start or touch any service without your permission. When needed, the script will ask and you can say no if you do not agree.
