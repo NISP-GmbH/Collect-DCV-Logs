@@ -213,6 +213,22 @@ getEnvironmentVars()
     env > ${target_dir}/env_command
     env | sort > ${target_dir}/env_sorted_command
     printenv > ${target_dir}/printenv_command
+
+    getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | while read -r user; do
+    USER_DIR="${target_dir}/users_environment_vars/$user"
+    mkdir -p "$USER_DIR"
+    
+    pid=$(pgrep -u "$user" -n)
+    env_file="$USER_DIR/env.txt"
+
+    if [ -z "$pid" ]
+    then
+        echo "No running processes found for user $user" > env_file
+        continue
+    fi
+
+    cat "/proc/$pid/environ" | tr '\0' '\n' >> "$env_file"
+    done
 }
 
 getPamData()
@@ -627,7 +643,6 @@ done
 main()
 {
     welcomeMessage
-    checkForceParameter
     createTempDirs
     checkPackagesVersions
     getOsData
