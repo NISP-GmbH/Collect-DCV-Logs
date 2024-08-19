@@ -41,60 +41,72 @@ checkLinuxDistro()
     echo "Checking your Linux distribution..."
     echo "Note: If you know what you are doing, please use --force option to avoid our Linux Distro compatibility test."
 
-    if [ -f /etc/redhat-release ]
+    if $force_flag
     then
-        release_info=$(cat /etc/redhat-release)
-
-        if echo $release_info | egrep -iq "(centos|almalinux|rocky|red hat|redhat)"
-        then
-            redhat_distro_based="true"
-        fi
-
-        if [[ "${redhat_distro_based}" == "true" ]]
-        then
-            if echo "$release_info" | egrep -iq stream
-            then
-                redhat_distro_based_version=$(cat /etc/redhat-release  |  grep -oE '[0-9]+')
-            else
-                redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1)
-            fi
-
-            if [[ ! $redhat_distro_based_version =~ ^[789]$ ]]
-            then
-                echo "Your RedHat Based Linux distro version..."
-                cat /etc/redhat-release
-                echo "is not supported. Aborting..."
-                exit 18
-            fi
-        else
-            echo "Your RedHat Based Linux distro..."
-            cat /etc/redhat-release
-            echo "is not supported. Aborting..."
-            exit 19
-        fi
+        echo "Force flag is set"
+        # fake info
+        redhat_distro_based=true
+        redhat_distro_based_version=8
+        ubuntu_distro=true
+        ubuntu_major_version=20
+        ubuntu_minor_version=04
     else
-        if [ -f /etc/debian_version ]
+        echo "Force flag is not set"
+
+        if [ -f /etc/redhat-release ]
         then
-            if cat /etc/issue | egrep -iq "ubuntu"
+            release_info=$(cat /etc/redhat-release)
+            if echo $release_info | egrep -iq "(centos|almalinux|rocky|red hat|redhat)"
             then
-                ubuntu_distro="true"
-                ubuntu_version=$(lsb_release -rs)
-                ubuntu_major_version=$(echo $ubuntu_version | cut -d '.' -f 1)
-                ubuntu_minor_version=$(echo $ubuntu_version | cut -d '.' -f 2)
-                if ( [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24  ]] ) && [[ $ubuntu_minor_version -ne 04 ]]
+                redhat_distro_based="true"
+            fi
+
+            if [[ "${redhat_distro_based}" == "true" ]]
+            then
+                if echo "$release_info" | egrep -iq stream
                 then
-                    echo "Your Ubuntu version >>> $ubuntu_version <<< is not supported. Aborting..."
-                    exit 20
+                    redhat_distro_based_version=$(cat /etc/redhat-release  |  grep -oE '[0-9]+')
+                else
+                    redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1)
+                fi
+
+                if [[ ! $redhat_distro_based_version =~ ^[789]$ ]]
+                then
+                    echo "Your RedHat Based Linux distro version..."
+                    cat /etc/redhat-release
+                    echo "is not supported. Aborting..."
+                    exit 18
                 fi
             else
-                echo "Your Debian Based Linux distro is not supported."
-                echo "Aborting..."
-                exit 21
+                echo "Your RedHat Based Linux distro..."
+                cat /etc/redhat-release
+                echo "is not supported. Aborting..."
+                exit 19
             fi
         else
-            echo "Not able to find which distro you are using."
-            echo "Aborting..."
-            exit 22
+            if [ -f /etc/debian_version ]
+            then
+                if cat /etc/issue | egrep -iq "ubuntu"
+                then
+                    ubuntu_distro="true"
+                    ubuntu_version=$(lsb_release -rs)
+                    ubuntu_major_version=$(echo $ubuntu_version | cut -d '.' -f 1)
+                    ubuntu_minor_version=$(echo $ubuntu_version | cut -d '.' -f 2)
+                    if ( [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24  ]] ) && [[ $ubuntu_minor_version -ne 04 ]]
+                    then
+                        echo "Your Ubuntu version >>> $ubuntu_version <<< is not supported. Aborting..."
+                        exit 20
+                    fi
+                else
+                    echo "Your Debian Based Linux distro is not supported."
+                    echo "Aborting..."
+                    exit 21
+                fi
+            else
+                echo "Not able to find which distro you are using."
+                echo "Aborting..."
+                exit 22
+            fi
         fi
     fi
 }
@@ -596,10 +608,21 @@ ubuntu_major_version=""
 ubuntu_minor_version=""
 redhat_distro_based="false"
 redhat_distro_based_version=""
+force_flag="false"
+
+for arg in "$@"
+do
+    if [ "$arg" = "--force" ]
+    then
+        force_flag=true
+        break
+    fi
+done
 
 main()
 {
     welcomeMessage
+    checkForceParameter
     createTempDirs
     checkPackagesVersions
     getOsData

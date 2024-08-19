@@ -12,10 +12,21 @@ ubuntu_major_version=""
 ubuntu_minor_version=""
 redhat_distro_based="false"
 redhat_distro_based_version=""
+force_flag="false"
+
+for arg in "$@"
+do
+    if [ "$arg" = "--force" ]
+    then
+        force_flag=true
+        break
+    fi
+done
 
 main()
 {
     welcomeMessage
+    checkForceParameter
     createTempDirs
     checkPackagesVersions
     getOsData
