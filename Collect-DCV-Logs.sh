@@ -440,8 +440,11 @@ getNvidiaInfo()
     target_dir="${temp_dir}/nvidia_info/"
     if command -v nvidia-smi > /dev/null 2>&1
     then
-        nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query > /dev/null 2>&1
-        nvidia-smi &> ${target_dir}/nvidia-smi_command
+        timeout_seconds=20
+        echo "Executing nvidia-smi special query. The test will take up to >>> $timeout_seconds <<< seconds."
+        timeout $timeout_seconds nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query > /dev/null 2>&1
+        echo "Executing nvidia-smi generic query. The test will take up to >>> $timeout_seconds <<< seconds."
+        timeout $timeout_seconds nvidia-smi &> ${target_dir}/nvidia-smi_command
     fi
 }
 
@@ -559,7 +562,9 @@ getXorgData()
         then
             echo "X is currently running. Cannot execute X -configure." > "${temp_dir}/warnings/X_is_running" 2>&1
         else
-            sudo X -configure > "${target_dir}/xorg.conf.configure.stdout" 2> "${target_dir}/xorg.conf.configure.stderr"
+            timeout_seconds=10
+            echo "Executing X -configure query. The test will take up to >>> $timeout_seconds <<< seconds"
+            sudo timeout $timeout_seconds X -configure > "${target_dir}/xorg.conf.configure.stdout" 2> "${target_dir}/xorg.conf.configure.stderr"
         fi
     else
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
