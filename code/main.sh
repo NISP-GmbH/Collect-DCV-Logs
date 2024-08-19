@@ -26,7 +26,6 @@ done
 main()
 {
     welcomeMessage
-    checkForceParameter
     createTempDirs
     checkPackagesVersions
     getOsData
