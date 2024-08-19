@@ -22,6 +22,7 @@ If your OS is not supported, you can force the log collect with --force paramete
 ```bash
 sudo bash Collect-DCV-Logs.sh --force
 ```
+or 
 
 ```bash
 sudo bash -c "$(wget --no-check-certificate -qO- https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh)" -- --force
