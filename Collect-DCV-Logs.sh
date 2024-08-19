@@ -572,6 +572,25 @@ getXorgData()
         sudo cp -r /usr/share/X11 $target_dir > /dev/null 2>&1
     fi
 
+    output_dir="${target_dir}/xsession_files"
+    mkdir -p "$output_dir"
+
+    getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | while read -r user; do
+    home_dir=$(getent passwd "$user" | cut -d: -f6)
+    user_files=$(find "$home_dir" -maxdepth 1 -name ".xsession*")
+
+    if [ -n "$user_files" ]
+    then
+        user_dir="$output_dir/$user"
+        mkdir -p "$user_dir"
+
+        for file in $user_files
+        do
+            cp "$file" "$user_dir/"
+        done
+    fi
+    done
+
     if command -v X > /dev/null 2>&1
     then
         if pgrep X > /dev/null
