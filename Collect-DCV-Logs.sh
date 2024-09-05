@@ -572,6 +572,25 @@ getXorgData()
         sudo cp -r /usr/share/X11 $target_dir > /dev/null 2>&1
     fi
 
+    if ls /etc/X11/xorg.conf.d/*nvidia* &>/dev/null
+    then
+        echo "A nvidia config file was found in >>> /etc/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." >> ${temp_dir}/warnings/nvidia_xorgconf_possible_override 2>&1
+    fi
+
+    if ls /usr/share/X11/xorg.conf.d/*nvidia* &>/dev/null
+    then
+        echo "A nvidia config file was found in >>> /usr/share/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." >> ${temp_dir}/warnings/nvidia_xorgconf_possible_override 2>&1
+    fi
+
+    find /etc/X11 -type f -exec grep -l "OutputClass" {} + | xargs -I {} readlink -f {} >> ${temp_dir}/warnings/found_nvidia_output_class_files_possible_xorgconf_override 2> /dev/null
+    find /usr/share/X11 -type f -exec grep -l "OutputClass" {} + | xargs -I {} readlink -f {} >> ${temp_dir}/warnings/found_nvidia_output_class_files_possible_xorgconf_override 2> /dev/null
+
+    sed -i '/^$/d' ${temp_dir}/warnings/found_nvidia_output_class_files_possible_xorgconf_override 2> /dev/null
+    if [ ! -s ${temp_dir}/warnings/found_nvidia_output_class_files_possible_xorgconf_override ]
+    then
+        rm -f ${temp_dir}/warnings/found_nvidia_output_class_files_possible_xorgconf_override
+    fi
+
     output_dir="${target_dir}/xsession_files"
     mkdir -p "$output_dir"
 
