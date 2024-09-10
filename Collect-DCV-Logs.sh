@@ -564,12 +564,15 @@ getXorgData()
 
     if [ -d /etc/X11 ]
     then
-        sudo cp -r /etc/X11 $target_dir > /dev/null 2>&1
+        mkdir -p ${target_dir}/etc_X11
+        sudo cp -r /etc/X11 $target_dir/etc_X11 > /dev/null 2>&1
     fi
 
     if [ -d /usr/share/X11 ]
     then
-        sudo cp -r /usr/share/X11 $target_dir > /dev/null 2>&1
+        mkdir -p ${target_dir}/usr_share_X11
+        sudo cp -r /usr/share/X11 ${target_dir/}/usr_share_x11 > /dev/null 2>&1
+        echo "/usr/share/X11 was found, but usually is expected /etc/X11. Check the last Xorg.log to identify which one is being used" >> ${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11 2>&1
     fi
 
     if ls /etc/X11/xorg.conf.d/*nvidia* &>/dev/null
