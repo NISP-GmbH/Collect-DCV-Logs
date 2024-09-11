@@ -608,7 +608,7 @@ getXorgData()
     then
         if pgrep X > /dev/null
         then
-            echo "X is currently running. Cannot execute X -configure." > "${temp_dir}/warnings/X_is_running" 2>&1
+            echo "X is currently running. Cannot execute X -configure." > "${temp_dir}/warnings/X_--configure_failed" 2>&1
         else
             timeout_seconds=10
             echo "Executing X -configure query. The test will take up to >>> $timeout_seconds <<< seconds"
