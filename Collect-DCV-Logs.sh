@@ -160,9 +160,16 @@ checkPackagesVersions()
         do
             if ! containsVersion "$version_release" "$redhat_distro_based_version"
             then
-                echo "Package $package version $version_release might not be compatible with EL$redhat_distro_based_version" >> ${target_dir}/packages_not_os_compatible
+                echo "Package $package version $version_release might not be compatible with EL$redhat_distro_based_version" >> ${target_dir}/packages_might_not_os_compatible
             fi
         done
+
+        if cat ${target_dir}/packages_might_not_os_compatible | egrep -iq dcv
+        then
+            dcv_packages_not_compatible=$(cat ${target_dir}/packages_might_not_os_compatible | egrep -i dcv)
+            echo "Found some DCV packages not compatible:" >> ${target_dir}/dcv_packages_not_os_compatible
+            echo $dcv_packages_not_compatible >> ${target_dir}/dcv_packages_not_os_compatible
+        fi
     fi
 
     if [[ "$ubuntu_distro" == "true" ]]
