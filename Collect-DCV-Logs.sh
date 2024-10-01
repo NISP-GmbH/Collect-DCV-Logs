@@ -193,21 +193,27 @@ checkPackagesVersions()
             
             year=$(echo "$version" | cut -d'.' -f1)
             
-            if [[ "$ubuntu_version" == "20.04" ]]; then
+            if [[ "$ubuntu_version" == "20.04" ]]
+            then
                 min_year=2020
-            elif [[ "$ubuntu_version" == "22.04" ]]; then
+            elif [[ "$ubuntu_version" == "22.04" ]]
+            then
                 min_year=2022
             else
                 min_year=$(($(date +%Y) - 1))  # Default to last year for unknown Ubuntu versions
             fi
 
-            if [[ "$year" -lt "$min_year" ]]; then
-                echo "Warning: $package version $version might be too old for Ubuntu $ubuntu_version. Expected minimum year: $min_year" >> "${target_dir}/dcv_packages_version_mismatch"
+            if [[ $year =~ ^[0-9]+$ ]]
+            then
+                if [[ "$year" -lt "$min_year" ]]
+                then
+                    echo "Warning: $package version $version might be too old for Ubuntu $ubuntu_version. Expected minimum year: $min_year" >> "${target_dir}/dcv_packages_version_mismatch"
+                else
+                    echo "Note: $package version $version appears to be compatible with Ubuntu $ubuntu_version" >> "${target_dir}/dcv_packages_version_info"
+                fi
             else
-                echo "Note: $package version $version appears to be compatible with Ubuntu $ubuntu_version" >> "${target_dir}/dcv_packages_version_info"
+                echo "Package $package is not installed" >> "${target_dir}/dcv_packages_not_installed"
             fi
-        else
-            echo "Package $package is not installed" >> "${target_dir}/dcv_packages_not_installed"
         fi
     done
     fi
@@ -221,20 +227,21 @@ getEnvironmentVars()
     env | sort > ${target_dir}/env_sorted_command
     printenv > ${target_dir}/printenv_command
 
-    getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | while read -r user; do
-    USER_DIR="${target_dir}/users_environment_vars/$user"
-    mkdir -p "$USER_DIR"
+    getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | while read -r user
+    do
+        USER_DIR="${target_dir}/users_environment_vars/$user"
+        mkdir -p "$USER_DIR"
     
-    pid=$(pgrep -u "$user" -n)
-    env_file="$USER_DIR/env.txt"
+        pid=$(pgrep -u "$user" -n)
+        env_file="$USER_DIR/env.txt"
 
-    if [ -z "$pid" ]
-    then
-        echo "No running processes found for user $user" > env_file
-        continue
-    fi
+        if [ -z "$pid" ]
+        then
+            echo "No running processes found for user $user" > ${USER_DIR}/env_file
+            continue
+        fi
 
-    cat "/proc/$pid/environ" | tr '\0' '\n' >> "$env_file"
+        cat "/proc/$pid/environ" | tr '\0' '\n' >> "$env_file"
     done
 }
 
