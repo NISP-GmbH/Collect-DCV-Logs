@@ -277,7 +277,7 @@ getSssdData()
         sudo cp -r /etc/sssd ${target_dir} > /dev/null 2>&1
     fi
 
-    detect_sssd=$(sudo ps aux | egrep -i 'sssd')
+    detect_sssd=$(sudo ps aux | egrep -i '[s]ssd')
     if [[ "${detect_sssd}x" != "x" ]]
     then
         echo "$detect_sssd" > $temp_dir/warnings/sssd_is_running
@@ -666,7 +666,7 @@ getXorgData()
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
     fi
 
-    detect_wayland=$(sudo ps aux | egrep -i 'wayland' | grep -v grep)
+    detect_wayland=$(sudo ps aux | egrep -i '[w]ayland')
     if [[ "${detect_wayland}x" != "x" ]]
     then
         echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running 2>&1
