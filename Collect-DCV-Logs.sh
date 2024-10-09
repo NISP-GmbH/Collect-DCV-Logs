@@ -519,6 +519,10 @@ getOsData()
     if command -v getenforce > /dev/null 2>&1
     then
         sudo getenforce > $target_dir/getenforce_result 2>&1
+        if cat $target_dir/getenforce_result | egrep -iq "enforcing"
+        then
+            echo "selinux is being enforced" > ${temp_dir}/warnings/selinux_is_enforced
+        fi
     fi
 
     if [ -f /etc/issue ]
@@ -579,6 +583,12 @@ getOsData()
         then
             cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_messages
         fi
+
+        echo "Checking for SELinux logs... if you have big log files, please wait for a moment."
+        grep -i "selinux is preventing" $target_dir/messages* | grep -i "dcv" | while read -r line 
+        do
+            echo "$line" > ${temp_dir}/warnings/selinux_is_preventing_dcv
+        done
     fi
 
     target_dir="${temp_dir}/journal_log"
