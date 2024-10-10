@@ -630,9 +630,10 @@ getXorgData()
     output_dir="${target_dir}/xsession_files"
     mkdir -p "$output_dir"
 
+    echo "Checking for all .xsession files... if you have a lot of users, please wait some extra time."
     getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | while read -r user; do
     home_dir=$(getent passwd "$user" | cut -d: -f6)
-    user_files=$(find "$home_dir" -maxdepth 1 -name ".xsession*")
+    user_files=$(find "$home_dir" -maxdepth 1 -name ".xsession*" 2> /dev/null)
 
     if [ -n "$user_files" ]
     then
