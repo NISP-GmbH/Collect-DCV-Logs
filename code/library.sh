@@ -662,9 +662,10 @@ getXorgData()
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
     fi
 
-    detect_wayland=$(sudo ps aux | egrep -i '[w]ayland')
+    detect_wayland=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "dcv_logs_collection.tar.gz")
     if [[ "${detect_wayland}x" != "x" ]]
     then
+        
         echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running 2>&1
     fi
 
