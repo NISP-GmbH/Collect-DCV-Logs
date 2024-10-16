@@ -402,6 +402,11 @@ getDcvData()
         echo "not found" > $target_dir/var_log_dcv_not_found
     fi
 
+    if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
+    then
+        echo "RLM Initialization failed: permission denied" ${temp_dir}/warnings/rlm_failed_permission_denied
+    fi
+
     if [ -f /var/log/dcv/dcv.log ]
     then
         if cat /var/log/dcv/dcv.log | egrep -iq "No license for product"
