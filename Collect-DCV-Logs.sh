@@ -277,10 +277,11 @@ getSssdData()
         sudo cp -r /etc/sssd ${target_dir} > /dev/null 2>&1
     fi
 
-    detect_sssd=$(sudo ps aux | egrep -i '[s]ssd')
-    if [[ "${detect_sssd}x" != "x" ]]
+    detect_service=""
+    detect_service=$(sudo ps aux | egrep -i '[s]ssd')
+    if [[ "${detect_service}x" != "x" ]]
     then
-        echo "$detect_sssd" > $temp_dir/warnings/sssd_is_running
+        echo "$detect_service" > $temp_dir/warnings/sssd_is_running
     fi
 
     target_dir="${temp_dir}/sssd_log"
@@ -315,6 +316,8 @@ getGdmData()
         sudo cp -r /var/log/gdm3 $target_dir > /dev/null 2>&1
     fi
 
+    sudo journalctl -u gdm.service > "${target_dir}/systemctl_gdm_journal"
+
     target_dir="${temp_dir}/gdm_conf/"
     if [ -f /etc/gdm/ ]
     then
@@ -329,7 +332,6 @@ getGdmData()
     sudo systemctl is-active gdm.service > "${target_dir}/systemctl_active_status"
     sudo systemctl is-enabled gdm.service > "${target_dir}/systemctl_enabled_status"
     sudo systemctl status gdm.service > "${target_dir}/systemctl_current_status"
-    sudo journalctl -u gdm.service > "${target_dir}/systemctl_gdm_journal"
     
     if pgrep -x "gdm" > /dev/null
     then
@@ -415,6 +417,11 @@ getDcvData()
         sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
     else
         echo "not found" > $target_dir/var_log_dcv_not_found
+    fi
+
+    if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
+    then
+        echo "RLM Initialization failed: permission denied" ${temp_dir}/warnings/rlm_failed_permission_denied
     fi
 
     if [ -f /var/log/dcv/dcv.log ]
@@ -677,10 +684,12 @@ getXorgData()
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
     fi
 
-    detect_wayland=$(sudo ps aux | egrep -i '[w]ayland')
-    if [[ "${detect_wayland}x" != "x" ]]
+    detect_service=""
+    detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz")
+    if [[ "${detect_service}x" != "x" ]]
     then
-        echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running 2>&1
+        
+        echo "$detect_service" > ${temp_dir}/warnings/wayland_is_running 2>&1
     fi
 
     XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
