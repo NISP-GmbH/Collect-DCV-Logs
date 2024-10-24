@@ -407,7 +407,12 @@ getDcvData()
 
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
-        echo "RLM Initialization failed: permission denied" ${temp_dir}/warnings/rlm_failed_permission_denied
+        echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" ${temp_dir}/warnings/rlm_failed_permission_denied
+    fi
+
+    if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
+    then
+        echo ">>> client will not be allowed to connect <<< message found in server.log files" ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
     fi
 
     if [ -f /var/log/dcv/dcv.log ]
