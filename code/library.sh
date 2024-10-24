@@ -367,7 +367,9 @@ getDcvDataAfterReboot()
     if echo $user_answer | egrep -iq "yes"
     then
         sudo systemctl restart dcvserver
-    
+
+        echo "Waiting 10 seconds before collect the new logs..."
+        sleep 10
         if [ -d /var/log/dcv ]
         then
             sudo cp -r /var/log/dcv ${target_dir} > /dev/null 2>&1
