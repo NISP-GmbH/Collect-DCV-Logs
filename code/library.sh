@@ -261,10 +261,11 @@ getSssdData()
         sudo cp -r /etc/sssd ${target_dir} > /dev/null 2>&1
     fi
 
-    detect_sssd=$(sudo ps aux | egrep -i '[s]ssd')
-    if [[ "${detect_sssd}x" != "x" ]]
+    detect_service=""
+    detect_service=$(sudo ps aux | egrep -i '[s]ssd')
+    if [[ "${detect_service}x" != "x" ]]
     then
-        echo "$detect_sssd" > $temp_dir/warnings/sssd_is_running
+        echo "$detect_service" > $temp_dir/warnings/sssd_is_running
     fi
 
     target_dir="${temp_dir}/sssd_log"
@@ -667,11 +668,12 @@ getXorgData()
         echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
     fi
 
-    detect_wayland=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "dcv_logs_collection.tar.gz")
-    if [[ "${detect_wayland}x" != "x" ]]
+    detect_service=""
+    detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz")
+    if [[ "${detect_service}x" != "x" ]]
     then
         
-        echo "$detect_wayland" > ${temp_dir}/warnings/wayland_is_running 2>&1
+        echo "$detect_service" > ${temp_dir}/warnings/wayland_is_running 2>&1
     fi
 
     XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
