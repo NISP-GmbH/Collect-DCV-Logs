@@ -443,7 +443,7 @@ EOF
 - please add:
 [connectivity]
 enable-quic-frontend=true
-enable-datagrams-display = always-off"
+enable-datagrams-display = always-off
 EOF
         fi
     fi
