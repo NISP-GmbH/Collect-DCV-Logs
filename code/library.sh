@@ -557,6 +557,8 @@ getOsData()
     then
         sudo rpm -qa > ${target_dir}/rpm_packages_list 2>&1
     fi
+    
+    uptime > ${target_dir}/uptime 2>&1
 
     ps aux --forest > ${target_dir}/ps_aux_--forest 2>&1
     pstree -p > ${target_dir}/pstree 2>&1
