@@ -415,22 +415,22 @@ getDcvData()
 
     if cat ${target_dir}/dcv/*.log.* | egrep -iq "killed by signal 11"
     then
-        echo "Found dcv process being killed  with signal 11 (segmentation fault)" ${temp_dir}/warnings/dcv_logs_kill_signal_11_found
+        echo "Found dcv process being killed  with signal 11 (segmentation fault)" > ${temp_dir}/warnings/dcv_logs_kill_signal_11_found
     fi
 
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
-        echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" ${temp_dir}/warnings/rlm_failed_permission_denied
+        echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" > ${temp_dir}/warnings/rlm_failed_permission_denied
     fi
 
     if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
     then
-        echo ">>> client will not be allowed to connect <<< message found in server.log files" ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
+        echo ">>> client will not be allowed to connect <<< message found in server.log files" > ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
     fi
 
     if cat ${target_dir}/dcv/server* | egrep -iq ".*too many files open.*"
     then
-        echo ">>> too many files open <<< message found in server.log files" ${temp_dir}/warnings/too_many_files_open
+        echo ">>> too many files open <<< message found in server.log files" > ${temp_dir}/warnings/too_many_files_open
     fi
 
     if cat ${target_dir}/dcv/server.log | egrep -iq "QUIC frontend enabled"
@@ -442,9 +442,9 @@ getDcvData()
     then
         if $temp_quic_enabled
         then
-            echo ">>> quictransport <<< was never mentioned in server.log files"> ${temp_dir}/warnings/quic_enabled_and_seems_never_used
+            echo ">>> quictransport <<< was never mentioned in server.log files" > ${temp_dir}/warnings/quic_enabled_and_seems_never_used
         else
-            echo ">>> quictransport <<< was never mentioned in server.log files"> ${temp_dir}/warnings/quic_disabled_and_seems_never_used
+            echo ">>> quictransport <<< was never mentioned in server.log files" > ${temp_dir}/warnings/quic_disabled_and_seems_never_used
         fi
     fi
 
@@ -727,7 +727,7 @@ getXorgData()
     then
         if pgrep X > /dev/null
         then
-            echo "X is currently running. Cannot execute X -configure." > "${temp_dir}/warnings/X_--configure_failed" 2>&1
+            echo "X is currently running. Cannot execute X -configure." > ${temp_dir}/warnings/X_--configure_failed 2>&1
         else
             timeout_seconds=10
             echo "Executing X -configure query. The test will take up to >>> $timeout_seconds <<< seconds"
