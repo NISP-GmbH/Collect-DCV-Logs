@@ -586,6 +586,11 @@ getOsData()
         then
             cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_dmesg
         fi
+
+        if egrep -iq "(segfault|segmentation fault)" $target_dir/dmesg > /dev/null 2>&1
+        then
+            cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+        fi
     fi
 
     if [ -f $target_dir/messages ]
@@ -600,12 +605,24 @@ getOsData()
         do
             echo "$line" > ${temp_dir}/warnings/selinux_is_preventing_dcv
         done
+
+        if egrep -iq "(segfault|segmentation fault)" $target_dir/messages > /dev/null 2>&1
+        then
+            cat $target_dir/messages | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+        fi
+
     fi
 
     target_dir="${temp_dir}/journal_log"
     sudo journalctl -n 15000 > ${target_dir}/journal_last_15000_lines.log 2>&1
     sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
+
+    if journalctl --no-page | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
+    then
+        journalctl --no-page | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+    fi
+
 }
 
 getXorgData()
