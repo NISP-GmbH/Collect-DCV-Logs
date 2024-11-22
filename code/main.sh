@@ -32,6 +32,7 @@ main()
     getEnvironmentVars
     getHwData
     getGdmData
+    getXfceLog
     getKerberosData
     getSssdData
     getNsswitchData

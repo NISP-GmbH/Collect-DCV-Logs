@@ -108,7 +108,7 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -284,6 +284,14 @@ getNsswitchData()
     then
         sudo cp /etc/nsswitch.conf ${target_dir}/ > /dev/null 2>&1
     fi
+}
+
+getXfceLog()
+{
+    echo "Collecting all XFCE relevant info..."
+    target_dir="${temp_dir}/xfce_log/"
+
+    sudo journalctl --no-page | egrep -i xfce >> ${target_dir}/journalctl_xfce_log
 }
 
 getGdmData()
