@@ -420,9 +420,9 @@ getDcvData()
         echo ">>> client will not be allowed to connect <<< message found in server.log files" ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
     fi
 
-    if [ -f /var/log/dcv/dcv.log ]
+    if [ -f /var/log/dcv/server.log ]
     then
-        if cat /var/log/dcv/dcv.log | egrep -iq "No license for product"
+        if cat /var/log/dcv/server.log | egrep -iq "No license for product"
         then
             echo "No license for product" > ${temp_dir}/warnings/dcv_not_found_valid_license
         fi
