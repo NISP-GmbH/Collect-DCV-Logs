@@ -433,6 +433,15 @@ getDcvData()
         echo ">>> too many files open <<< message found in server.log files" ${temp_dir}/warnings/too_many_files_open
     fi
 
+    if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" 
+    then
+        cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" >> ${temp_dir}/warnings/found_dcv_viewer_2022
+    fi
+
+    if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2023"
+    then
+        cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2023" >> ${temp_dir}/warnings/found_dcv_viewer_2023
+    fi
 
     if [ -f /var/log/dcv/server.log ]
     then
