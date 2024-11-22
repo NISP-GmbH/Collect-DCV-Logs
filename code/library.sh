@@ -433,6 +433,21 @@ getDcvData()
         echo ">>> too many files open <<< message found in server.log files" ${temp_dir}/warnings/too_many_files_open
     fi
 
+    if cat ${target_dir}/dcv/server.log | egrep -iq "QUIC frontend enabled"
+    then
+        temp_quic_enabled=true
+    fi
+
+    if ! cat ${target_dir}/dcv/server* | egrep -iq "quictransport"
+    then
+        if $temp_quic_enabled
+        then
+            echo ">>> quictransport <<< was never mentioned in server.log files"> ${temp_dir}/warnings/quic_enabled_and_seems_never_used
+        else
+            echo ">>> quictransport <<< was never mentioned in server.log files"> ${temp_dir}/warnings/quic_disabled_and_seems_never_used
+        fi
+    fi
+
     if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" 
     then
         cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" >> ${temp_dir}/warnings/found_dcv_viewer_2022
