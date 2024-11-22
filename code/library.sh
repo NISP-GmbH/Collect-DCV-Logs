@@ -420,6 +420,12 @@ getDcvData()
         echo ">>> client will not be allowed to connect <<< message found in server.log files" ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
     fi
 
+    if cat ${target_dir}/dcv/server* | egrep -iq ".*too many files open.*"
+    then
+        echo ">>> too many files open <<< message found in server.log files" ${temp_dir}/warnings/too_many_files_open
+    fi
+
+
     if [ -f /var/log/dcv/server.log ]
     then
         if cat /var/log/dcv/server.log | egrep -iq "No license for product"
