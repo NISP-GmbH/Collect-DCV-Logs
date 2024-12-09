@@ -418,6 +418,11 @@ getDcvData()
         echo "Found dcv process being killed  with signal 11 (segmentation fault)" > ${temp_dir}/warnings/dcv_logs_kill_signal_11_found
     fi
 
+    if cat ${target_dir}/dcv/server* | egrep -iq ".*not authorized in any channel.*"
+    then
+        cat ${target_dir}/dcv/server* | egrep -i ".*not authorized in any channel.*" >> ${temp_dir}/warnings/possible_owner_session_issue
+    fi
+    
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
         echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" > ${temp_dir}/warnings/rlm_failed_permission_denied
