@@ -383,7 +383,7 @@ getDcvDataAfterReboot()
             sudo cp -r /var/log/dcv ${target_dir} > /dev/null 2>&1
         else
             echo "not found" > $target_dir/var_log_dcv_not_found
-            sudo journalctl -n 15000 > ${target_dir}/journal_last_15000_lines.log
+            sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log
             sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal
             sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal
         fi 
@@ -651,7 +651,7 @@ getOsData()
     fi
 
     target_dir="${temp_dir}/journal_log"
-    sudo journalctl -n 15000 > ${target_dir}/journal_last_15000_lines.log 2>&1
+    sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log 2>&1
     sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
 
