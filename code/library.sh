@@ -91,21 +91,22 @@ compressLogCollection()
 
 encryptLogCollection()
 {
-    gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "${encrypt_password}" "${compressed_file_name}"
+    gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "${encrypt_password}" --output "${encrypted_file_name}"  "${compressed_file_name}"
 }
 
 uploadLogCollection()
 {
+    echo "Uploading the file to Support Team..." 
     curl_response=$(curl -s -w "\n%{http_code}" -F "file=@${encrypted_file_name}" "${upload_url}")
     if [ $? -ne 0 ]
     then
         echo "Failed to upload the file!"
         exit 23
     else
-        curl_http_body=$(echo $curl_response | sed '%d')
+        curl_http_body=$(echo $curl_response | sed '1,/^$/d')
         curl_http_status=$(echo $curl_response | tail -n1)
         curl_filename=$(echo "$curl_http_body" | tr -d '\r\n')
-        echo -e "\n Upload successful!"
+        echo -e "\nUpload successful!"
         echo "GPG Password: ${encrypt_password}"
         echo "File name: ${curl_filename}"
         echo -e "\n Please send the File URL and the GPG password to the support team."
