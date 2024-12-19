@@ -1,10 +1,16 @@
 welcomeMessage()
 {
+    echo "#################################################"
     echo "This script will collect important logs to help you to find problems in DCV server and eventually additional components."
     echo -e "${GREEN}By default the script will not restart any service without your approval. So if you do not agree when asked, this script will collect all logs without touch in any running service.${NC}"
     echo "Answering yes to those answers can help the support to troubleshoot the problem."
     echo "If is possible, please execute this script inside of Xorg session (GUI session), so we can collect some useful informations."
+    echo "#################################################"
     echo -e "${GREEN}We strongly recommend that you have the follow packages installed: nice-dcv-gl, nice-dcv-gltest and nice-xdcv.${NC}"
+    echo "#################################################"
+    echo -e "${GREEN}In the end, the file will be uploaded to our cloud storage and you will receive a file name and a GPG password to send to Support Team.${NC}"
+    echo "Note: We do not store the GPG password, so we can not open the file if you not send the key."
+    echo "#################################################"
     echo "To start collecting the logs, press enter or ctrl+c to quit."
     read p
 }
