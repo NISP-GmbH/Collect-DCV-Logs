@@ -107,7 +107,7 @@ uploadLogCollection()
         curl_filename=$(echo "$curl_http_body" | tr -d '\r\n')
         echo -e "\n Upload successful!"
         echo "GPG Password: ${encrypt_password}"
-        echo "File URL: ${curl_final_url}"
+        echo "File name: ${curl_filename}"
         echo -e "\n Please send the File URL and the GPG password to the support team."
     fi
 }
