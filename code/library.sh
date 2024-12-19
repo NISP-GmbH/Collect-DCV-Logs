@@ -121,7 +121,7 @@ removeTempFiles()
     rm -f $compressed_file_name
 
     echo "Do you want to delete the ${encrypted_file_name}?"
-    echo "Write Yes/Y/y. Any other response, or empty response, will me considered as no."
+    echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
     read user_answer
 
     if echo $user_answer | egrep -iq "(y|yes)"
@@ -392,7 +392,7 @@ getDcvDataAfterReboot()
     user_answer="no"
     echo "The script want to reboot the dcvserver to collect some info after service reboot."
     echo -e "${GREEN}Do you agree with DCV service restart?${NC}"
-    echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
+    echo "If is possible, please write \"yes\". Any other response, or empty response, will be considered as no."
     read user_answer
     target_dir="${temp_dir}/dcv_log/after_reboot/"
     mkdir -p $target_dir
@@ -531,7 +531,7 @@ runDcvgldiag()
         user_answer="no"
         echo "The script want to reboot the Xorg to collect some info after service reboot."
         echo -e "${GREEN}Do you agree with X service restart?${NC}"
-        echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
+        echo "If is possible, please write \"yes\". Any other response, or empty response, will be considered as no."
         read user_answer
 
         if [[ "$user_answer" == "yes" ]]
