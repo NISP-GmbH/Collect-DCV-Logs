@@ -54,6 +54,7 @@ main()
     runDcvgldiag
     compressLogCollection
     encryptLogCollection
+    uploadLogCollection
     removeTempFiles
     exit 0
 }
