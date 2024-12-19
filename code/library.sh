@@ -115,10 +115,19 @@ uploadLogCollection()
 
 removeTempFiles()
 {
+    echo -e "Cleaning temp files..."
     rm -rf $temp_dir
     rm -f $encrypted_file_name
     rm -f $compressed_file_name
-    rm -f $encrypted_file_name
+
+    echo "Do you want to delete the ${encrypted_file_name}?"
+    echo "Write Yes/Y/y. Any other response, or empty response, will me considered as no."
+    read user_answer
+
+    if echo $user_answer | egrep -iq "(y|yes)"
+    then
+        rm -f $encrypted_file_name
+    fi
 }
 
 createTempDirs()
