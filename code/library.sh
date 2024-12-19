@@ -9,17 +9,6 @@ welcomeMessage()
     read p
 }
 
-askToEncrypt()
-{
-    echo "The file >>> $compressed_file_name <<< was created and is ready to send to support."
-    echo "If you want to encrypt the file with password, please use this command:"
-    echo "gpg -c $compressed_file_name"
-    echo "And set a password to open the file. Then send the file to us and send the password in a secure way."
-    echo "To decrypt and extract, the command is:"
-    echo "gpg -d ${compressed_file_name}.gpg | tar xzvf -"
-    echo "Encrypting is not mandatory to send to the support."
-}
-
 checkLinuxDistro()
 {
     echo "Checking your Linux distribution..."
@@ -100,9 +89,17 @@ compressLogCollection()
     tar czf $compressed_file_name $temp_dir
 }
 
-removeTempDirs()
+encryptLogCollection()
+{
+    gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "${encrypt_password}" "${compressed_file_name}"
+}
+
+removeTempFiles()
 {
     rm -rf $temp_dir
+    rm -f $encrypted_file_name
+    rm -f $compressed_file_name
+    rm -f $encrypted_file_name
 }
 
 createTempDirs()
