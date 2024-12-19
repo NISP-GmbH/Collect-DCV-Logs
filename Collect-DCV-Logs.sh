@@ -124,7 +124,7 @@ removeTempDirs()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -302,6 +302,14 @@ getNsswitchData()
     fi
 }
 
+getXfceLog()
+{
+    echo "Collecting all XFCE relevant info..."
+    target_dir="${temp_dir}/xfce_log/"
+
+    sudo journalctl --no-page | egrep -i xfce >> ${target_dir}/journalctl_xfce_log
+}
+
 getGdmData()
 {
     echo "Collecting all GDM relevant info..."
@@ -391,7 +399,7 @@ getDcvDataAfterReboot()
             sudo cp -r /var/log/dcv ${target_dir} > /dev/null 2>&1
         else
             echo "not found" > $target_dir/var_log_dcv_not_found
-            sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log
+            sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log
             sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal
             sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal
         fi 
@@ -421,19 +429,59 @@ getDcvData()
         echo "not found" > $target_dir/var_log_dcv_not_found
     fi
 
+    if cat ${target_dir}/dcv/*.log.* | egrep -iq "killed by signal 11"
+    then
+        echo "Found dcv process being killed  with signal 11 (segmentation fault)" > ${temp_dir}/warnings/dcv_logs_kill_signal_11_found
+    fi
+
+    if cat ${target_dir}/dcv/server* | egrep -iq ".*not authorized in any channel.*"
+    then
+        cat ${target_dir}/dcv/server* | egrep -i ".*not authorized in any channel.*" >> ${temp_dir}/warnings/possible_owner_session_issue
+    fi
+    
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
-        echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" ${temp_dir}/warnings/rlm_failed_permission_denied
+        echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" > ${temp_dir}/warnings/rlm_failed_permission_denied
     fi
 
     if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
     then
-        echo ">>> client will not be allowed to connect <<< message found in server.log files" ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
+        echo ">>> client will not be allowed to connect <<< message found in server.log files" > ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
     fi
 
-    if [ -f /var/log/dcv/dcv.log ]
+    if cat ${target_dir}/dcv/server* | egrep -iq ".*too many files open.*"
     then
-        if cat /var/log/dcv/dcv.log | egrep -iq "No license for product"
+        echo ">>> too many files open <<< message found in server.log files" > ${temp_dir}/warnings/too_many_files_open
+    fi
+
+    if cat ${target_dir}/dcv/server.log | egrep -iq "QUIC frontend enabled"
+    then
+        temp_quic_enabled=true
+    fi
+
+    if ! cat ${target_dir}/dcv/server* | egrep -iq "quictransport"
+    then
+        if $temp_quic_enabled
+        then
+            echo ">>> quictransport <<< was never mentioned in server.log files" > ${temp_dir}/warnings/quic_enabled_and_seems_never_used
+        else
+            echo ">>> quictransport <<< was never mentioned in server.log files" > ${temp_dir}/warnings/quic_disabled_and_seems_never_used
+        fi
+    fi
+
+    if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" 
+    then
+        cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" >> ${temp_dir}/warnings/found_dcv_viewer_2022
+    fi
+
+    if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2023"
+    then
+        cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2023" >> ${temp_dir}/warnings/found_dcv_viewer_2023
+    fi
+
+    if [ -f /var/log/dcv/server.log ]
+    then
+        if cat /var/log/dcv/server.log | egrep -iq "No license for product"
         then
             echo "No license for product" > ${temp_dir}/warnings/dcv_not_found_valid_license
         fi
@@ -459,7 +507,7 @@ EOF
 - please add:
 [connectivity]
 enable-quic-frontend=true
-enable-datagrams-display = always-off"
+enable-datagrams-display = always-off
 EOF
         fi
     fi
@@ -568,6 +616,8 @@ getOsData()
     then
         sudo rpm -qa > ${target_dir}/rpm_packages_list 2>&1
     fi
+    
+    uptime > ${target_dir}/uptime 2>&1
 
     ps aux --forest > ${target_dir}/ps_aux_--forest 2>&1
     pstree -p > ${target_dir}/pstree 2>&1
@@ -589,6 +639,11 @@ getOsData()
         then
             cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_dmesg
         fi
+
+        if egrep -iq "(segfault|segmentation fault)" $target_dir/dmesg > /dev/null 2>&1
+        then
+            cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+        fi
     fi
 
     if [ -f $target_dir/messages ]
@@ -603,12 +658,24 @@ getOsData()
         do
             echo "$line" > ${temp_dir}/warnings/selinux_is_preventing_dcv
         done
+
+        if egrep -iq "(segfault|segmentation fault)" $target_dir/messages > /dev/null 2>&1
+        then
+            cat $target_dir/messages | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+        fi
+
     fi
 
     target_dir="${temp_dir}/journal_log"
-    sudo journalctl -n 5000 > ${target_dir}/journal_last_5000_lines.log 2>&1
+    sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log 2>&1
     sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
+
+    if journalctl --no-page | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
+    then
+        journalctl --no-page | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+    fi
+
 }
 
 getXorgData()
@@ -681,7 +748,7 @@ getXorgData()
     then
         if pgrep X > /dev/null
         then
-            echo "X is currently running. Cannot execute X -configure." > "${temp_dir}/warnings/X_--configure_failed" 2>&1
+            echo "X is currently running. Cannot execute X -configure." > ${temp_dir}/warnings/X_--configure_failed 2>&1
         else
             timeout_seconds=10
             echo "Executing X -configure query. The test will take up to >>> $timeout_seconds <<< seconds"
@@ -756,6 +823,7 @@ main()
     getEnvironmentVars
     getHwData
     getGdmData
+    getXfceLog
     getKerberosData
     getSssdData
     getNsswitchData
