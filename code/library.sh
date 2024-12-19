@@ -666,6 +666,7 @@ getOsData()
     fi
 
     target_dir="${temp_dir}/journal_log"
+    echo "Collecting journalctl data... if you have a long history stored, please wait for a moment."
     sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log 2>&1
     sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
