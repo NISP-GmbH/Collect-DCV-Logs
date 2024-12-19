@@ -55,6 +55,7 @@ main()
     encryptLogCollection
     uploadLogCollection
     removeTempFiles
+    byebyeMessage
     exit 0
 }
 

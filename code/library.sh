@@ -1,3 +1,8 @@
+byebyeMessage()
+{
+    echo -e "${GREEN}Thank you! ${NC}"
+}
+
 welcomeMessage()
 {
     echo "#################################################"
@@ -126,7 +131,7 @@ removeTempFiles()
     rm -f $encrypted_file_name
     rm -f $compressed_file_name
 
-    echo "Do you want to delete the ${encrypted_file_name}?"
+    echo -e "${GREEN}Do you want to delete the ${encrypted_file_name}?${NC}"
     echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
     read user_answer
 
