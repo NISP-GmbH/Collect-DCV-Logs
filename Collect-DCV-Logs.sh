@@ -16,24 +16,19 @@
 
 welcomeMessage()
 {
+    echo "#################################################"
     echo "This script will collect important logs to help you to find problems in DCV server and eventually additional components."
     echo -e "${GREEN}By default the script will not restart any service without your approval. So if you do not agree when asked, this script will collect all logs without touch in any running service.${NC}"
     echo "Answering yes to those answers can help the support to troubleshoot the problem."
     echo "If is possible, please execute this script inside of Xorg session (GUI session), so we can collect some useful informations."
+    echo "#################################################"
     echo -e "${GREEN}We strongly recommend that you have the follow packages installed: nice-dcv-gl, nice-dcv-gltest and nice-xdcv.${NC}"
+    echo "#################################################"
+    echo -e "${GREEN}In the end, the file will be uploaded to our cloud storage and you will receive a file name and a GPG password to send to Support Team.${NC}"
+    echo "Note: We do not store the GPG password, so we can not open the file if you not send the key."
+    echo "#################################################"
     echo "To start collecting the logs, press enter or ctrl+c to quit."
     read p
-}
-
-askToEncrypt()
-{
-    echo "The file >>> $compressed_file_name <<< was created and is ready to send to support."
-    echo "If you want to encrypt the file with password, please use this command:"
-    echo "gpg -c $compressed_file_name"
-    echo "And set a password to open the file. Then send the file to us and send the password in a secure way."
-    echo "To decrypt and extract, the command is:"
-    echo "gpg -d ${compressed_file_name}.gpg | tar xzvf -"
-    echo "Encrypting is not mandatory to send to the support."
 }
 
 checkLinuxDistro()
@@ -116,9 +111,45 @@ compressLogCollection()
     tar czf $compressed_file_name $temp_dir
 }
 
-removeTempDirs()
+encryptLogCollection()
 {
+    gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "${encrypt_password}" --output "${encrypted_file_name}"  "${compressed_file_name}"
+}
+
+uploadLogCollection()
+{
+    echo -e "Uploading the file to Support Team..." 
+    curl_response=$(curl -s -w "\n%{http_code}" -F "file=@${encrypted_file_name}" "${upload_url}")
+    if [ $? -ne 0 ]
+    then
+        echo "Failed to upload the file!"
+        exit 23
+    else
+        curl_http_body=$(echo $curl_response | cut -d' ' -f1)
+        curl_http_status=$(echo $curl_response | cut -d' ' -f2)
+        curl_filename=$(echo "$curl_http_body" | tr -d '\r\n')
+        echo -e "\nUpload successful!"
+        echo "GPG Password: ${encrypt_password}"
+        echo "File name: ${curl_filename}"
+        echo -e "\nPlease send the File URL and the GPG password to the support team."
+    fi
+}
+
+removeTempFiles()
+{
+    echo -e "Cleaning temp files..."
     rm -rf $temp_dir
+    rm -f $encrypted_file_name
+    rm -f $compressed_file_name
+
+    echo "Do you want to delete the ${encrypted_file_name}?"
+    echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
+    read user_answer
+
+    if echo $user_answer | egrep -iq "(y|yes)"
+    then
+        rm -f $encrypted_file_name
+    fi
 }
 
 createTempDirs()
@@ -383,7 +414,7 @@ getDcvDataAfterReboot()
     user_answer="no"
     echo "The script want to reboot the dcvserver to collect some info after service reboot."
     echo -e "${GREEN}Do you agree with DCV service restart?${NC}"
-    echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
+    echo "If is possible, please write \"yes\". Any other response, or empty response, will be considered as no."
     read user_answer
     target_dir="${temp_dir}/dcv_log/after_reboot/"
     mkdir -p $target_dir
@@ -522,7 +553,7 @@ runDcvgldiag()
         user_answer="no"
         echo "The script want to reboot the Xorg to collect some info after service reboot."
         echo -e "${GREEN}Do you agree with X service restart?${NC}"
-        echo "If is possible, please write \"yes\". Any other response, or empty response, will me considered as no."
+        echo "If is possible, please write \"yes\". Any other response, or empty response, will be considered as no."
         read user_answer
 
         if [[ "$user_answer" == "yes" ]]
@@ -667,6 +698,7 @@ getOsData()
     fi
 
     target_dir="${temp_dir}/journal_log"
+    echo "Collecting journalctl data... if you have a long history stored, please wait for a moment."
     sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log 2>&1
     sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
@@ -797,6 +829,15 @@ NC='\033[0m' # No Color
 
 temp_dir="tmp/"
 compressed_file_name="dcv_logs_collection.tar.gz"
+encrypted_file_name="${compressed_file_name}.gpg"
+encrypt_length="32"
+encrypt_password=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9@#$%^&*()-_=+' | head -c "${encrypt_length}")
+upload_domain="https://dcv-logs.ni-sp.com"
+upload_url="${upload_domain}/upload.php"
+curl_response=""
+curl_http_body=""
+curl_http_status=""
+curl_filename=""
 ubuntu_distro="false"
 ubuntu_version=""
 ubuntu_major_version=""
@@ -834,8 +875,9 @@ main()
     getDcvDataAfterReboot
     runDcvgldiag
     compressLogCollection
-    askToEncrypt
-    removeTempDirs
+    encryptLogCollection
+    uploadLogCollection
+    removeTempFiles
     exit 0
 }
 
