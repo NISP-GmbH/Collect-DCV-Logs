@@ -127,7 +127,7 @@ uploadLogCollection()
         then
             echo "Failed to notificate the NISP Support Team about the uploaded file. Please send an e-mail."
         else
-            echo "${GREEN}NISP Support Team was notified about the file!${NC}"
+            echo -e "${GREEN}NISP Support Team was notified about the file!${NC}"
         fi
     fi
 }
