@@ -22,18 +22,22 @@ byebyeMessage()
 welcomeMessage()
 {
     echo "#################################################"
+    echo -e "${GREEN}Welcome to NISP DCV Collect Logs tool!${NC}"
+    echo -e "Check all of our guides and tools: https://github.com/NISP-GmbH/Guides"
+    echo "#################################################"
     echo "This script will collect important logs to help you to find problems in DCV server and eventually additional components."
-    echo -e "${GREEN}By default the script will not restart any service without your approval. So if you do not agree when asked, this script will collect all logs without touch in any running service.${NC}"
-    echo "Answering yes to those answers can help the support to troubleshoot the problem."
+    echo -e "${GREEN}By default the script will not restart any service without your approval.${NC}"
     echo "If is possible, please execute this script inside of Xorg session (GUI session), so we can collect some useful informations."
     echo "#################################################"
     echo -e "${GREEN}We strongly recommend that you have the follow packages installed: nice-dcv-gl, nice-dcv-gltest and nice-xdcv.${NC}"
     echo "#################################################"
-    echo -e "${GREEN}In the end, the file will be uploaded to our cloud storage and you will receive a file name and a GPG password to send to Support Team.${NC}"
-    echo "Note: We do not store the GPG password, so we can not open the file if you not send the key."
+    echo -e "${GREEN}In the end, an encrypted file will be created, then it will be securely uploaded to NISP and a notification will be sent to NISP Support Team.${NC}"
+    echo "If you do not have internet acess when executing this script, you will have an option to store the file in the end."
     echo "#################################################"
     echo "To start collecting the logs, press enter or ctrl+c to quit."
     read p
+    echo "Write any text that will identify you for NISP Support Team. Can be e-mail, name, e-mail subject, company name etc."
+    read identifier_string
 }
 
 checkLinuxDistro()
@@ -123,20 +127,24 @@ encryptLogCollection()
 
 uploadLogCollection()
 {
-    echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to Support Team...${NC}"
+    echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to NISP Support Team...${NC}"
     curl_response=$(curl -s -w "\n%{http_code}" -F "file=@${encrypted_file_name}" "${upload_url}")
     if [ $? -ne 0 ]
     then
         echo "Failed to upload the file!"
         exit 23
     else
+        echo -e "\nUpload successful!"
         curl_http_body=$(echo $curl_response | cut -d' ' -f1)
         curl_http_status=$(echo $curl_response | cut -d' ' -f2)
         curl_filename=$(echo "$curl_http_body" | tr -d '\r\n')
-        echo -e "\nUpload successful!"
-        echo "GPG Password: ${encrypt_password}"
-        echo "File name: ${curl_filename}"
-        echo -e "\nPlease send the File name and the GPG password to the support team."
+        curl_response=$(curl -s -w "\n%{http_code}" -X POST -d "encrypt_password=${encrypt_password}" -d "curl_filename=${curl_filename}" -d "identifier_string=${identifier_string}" "$notify_url")
+        if [ $? -ne 0 ]
+        then
+            echo "Failed to notificate the NISP Support Team about the uploaded file. Please send an e-mail."
+        else
+            echo "${GREEN}NISP Support Team was notified about the file!${NC}"
+        fi
     fi
 }
 
@@ -145,15 +153,16 @@ removeTempFiles()
     echo -e "Cleaning temp files..."
     rm -rf $temp_dir
     rm -f $encrypted_file_name
-    rm -f $compressed_file_name
+    rm -f $encrypted_file_name
 
-    echo -e "${GREEN}Do you want to delete the ${encrypted_file_name}?${NC}"
+    echo -e "${GREEN}Do you want to delete the ${compressed_file_name}?${NC}"
+    echo "If you have no internet to upload the file, you can manually send to NISP Support Team."
     echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
     read user_answer
 
     if echo $user_answer | egrep -iq "(y|yes)"
     then
-        rm -f $encrypted_file_name
+        rm -f $compressed_file_name
     fi
 }
 
@@ -555,33 +564,17 @@ runDcvgldiag()
 
     if command -v dcvgldiag > /dev/null 2>&1
     then
-        user_answer="no"
-        echo "The script want to reboot the Xorg to collect some info after service reboot."
-        echo -e "${GREEN}Do you agree with X service restart?${NC}"
-        echo "If is possible, please write \"yes\". Any other response, or empty response, will be considered as no."
-        read user_answer
-
-        if [[ "$user_answer" == "yes" ]]
-        then
-            sudo systemctl isolate multi-user.target
-            sudo dcvgladmin disable
-            sudo dcvgladmin enable
-            sudo systemctl isolate graphical.target
-
-            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
+        sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
             
-            if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
-            then
-                dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
-                echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
-            fi
+        if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
+        then
+            dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
+            echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
+        fi
 
-            if cat ${target_dir}/dcvgldiag.log | egrep -iq "Detected nouveau kernel module"
-            then
-                echo "Detected nouveau kernel module" > ${temp_dir}/warnings/nouveau_kernel_module_found
-            fi
-        else
-            echo "user not approved to run dcvgldiag" > ${target_dir}/dcvgldiag_not_executed
+        if cat ${target_dir}/dcvgldiag.log | egrep -iq "Detected nouveau kernel module"
+        then
+            echo "Detected nouveau kernel module" > ${temp_dir}/warnings/nouveau_kernel_module_found
         fi
     else
         echo "dcvgldiag not installed" > ${temp_dir}/warnings/dcvgldiag_not_installed
@@ -835,10 +828,12 @@ BOLD='\033[1m'
 temp_dir="tmp/"
 compressed_file_name="dcv_logs_collection.tar.gz"
 encrypted_file_name="${compressed_file_name}.gpg"
+identifier_string=""
 encrypt_length="32"
 encrypt_password=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9@#$%^&*()-_=+' | head -c "${encrypt_length}")
 upload_domain="https://dcv-logs.ni-sp.com"
 upload_url="${upload_domain}/upload.php"
+notify_url="${upload_domain}/notify.php"
 curl_response=""
 curl_http_body=""
 curl_http_status=""
@@ -877,7 +872,7 @@ main()
     getXorgData
     getNvidiaInfo
     getDcvData
-    getDcvDataAfterReboot
+    #getDcvDataAfterReboot
     runDcvgldiag
     compressLogCollection
     encryptLogCollection
