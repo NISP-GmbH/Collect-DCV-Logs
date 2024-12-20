@@ -548,33 +548,17 @@ runDcvgldiag()
 
     if command -v dcvgldiag > /dev/null 2>&1
     then
-        user_answer="no"
-        echo "The script want to reboot the Xorg to collect some info after service reboot."
-        echo -e "${GREEN}Do you agree with X service restart?${NC}"
-        echo "If is possible, please write \"yes\". Any other response, or empty response, will be considered as no."
-        read user_answer
-
-        if [[ "$user_answer" == "yes" ]]
-        then
-            sudo systemctl isolate multi-user.target
-            sudo dcvgladmin disable
-            sudo dcvgladmin enable
-            sudo systemctl isolate graphical.target
-
-            sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
+        sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
             
-            if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
-            then
-                dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
-                echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
-            fi
+        if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
+        then
+            dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
+            echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
+        fi
 
-            if cat ${target_dir}/dcvgldiag.log | egrep -iq "Detected nouveau kernel module"
-            then
-                echo "Detected nouveau kernel module" > ${temp_dir}/warnings/nouveau_kernel_module_found
-            fi
-        else
-            echo "user not approved to run dcvgldiag" > ${target_dir}/dcvgldiag_not_executed
+        if cat ${target_dir}/dcvgldiag.log | egrep -iq "Detected nouveau kernel module"
+        then
+            echo "Detected nouveau kernel module" > ${temp_dir}/warnings/nouveau_kernel_module_found
         fi
     else
         echo "dcvgldiag not installed" > ${temp_dir}/warnings/dcvgldiag_not_installed
