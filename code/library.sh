@@ -107,7 +107,7 @@ encryptLogCollection()
 
 uploadLogCollection()
 {
-    echo -e "Uploading the file to Support Team..." 
+    echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to Support Team...${NC}"
     curl_response=$(curl -s -w "\n%{http_code}" -F "file=@${encrypted_file_name}" "${upload_url}")
     if [ $? -ne 0 ]
     then

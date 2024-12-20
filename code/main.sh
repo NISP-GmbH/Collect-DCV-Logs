@@ -3,7 +3,7 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
-
+BOLD='\033[1m'
 temp_dir="tmp/"
 compressed_file_name="dcv_logs_collection.tar.gz"
 encrypted_file_name="${compressed_file_name}.gpg"
