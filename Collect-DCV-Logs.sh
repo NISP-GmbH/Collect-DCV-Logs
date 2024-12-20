@@ -138,7 +138,7 @@ uploadLogCollection()
         curl_http_body=$(echo $curl_response | cut -d' ' -f1)
         curl_http_status=$(echo $curl_response | cut -d' ' -f2)
         curl_filename=$(echo "$curl_http_body" | tr -d '\r\n')
-        curl_response=$(curl -s -w "\n%{http_code}" -X POST -d "encrypt_password=${encrypt_password}" -d "curl_filename=${curl_filename}" -d "identifier_string=${identifier_string}" "$notify_url")
+        curl_response=$(curl -s -w "\n%{http_code}" -X POST --data-urlencode "encrypt_password=${encrypt_password}" --data-urlencode "curl_filename=${curl_filename}" --data-urlencode "identifier_string=${identifier_string}" "$notify_url")
         if [ $? -ne 0 ]
         then
             echo "Failed to notificate the NISP Support Team about the uploaded file. Please send an e-mail."
@@ -830,7 +830,7 @@ compressed_file_name="dcv_logs_collection.tar.gz"
 encrypted_file_name="${compressed_file_name}.gpg"
 identifier_string=""
 encrypt_length="32"
-encrypt_password=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9@#$%^&*()-_=+' | head -c "${encrypt_length}")
+encrypt_password=$(openssl rand -base64 48 | tr -dc '\-A-Za-z0-9@#$%^&*()_=+' | tr -d ' ' | head -c "${encrypt_length}")
 upload_domain="https://dcv-logs.ni-sp.com"
 upload_url="${upload_domain}/upload.php"
 notify_url="${upload_domain}/notify.php"
