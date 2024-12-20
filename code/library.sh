@@ -6,6 +6,9 @@ byebyeMessage()
 welcomeMessage()
 {
     echo "#################################################"
+    echo -e "${GREEN}Welcome to NISP DCV Collect Logs tool!${NC}"
+    echo -e "Check all of our guides and tools: https://github.com/NISP-GmbH/Guides"
+    echo "#################################################"
     echo "This script will collect important logs to help you to find problems in DCV server and eventually additional components."
     echo -e "${GREEN}By default the script will not restart any service without your approval. So if you do not agree when asked, this script will collect all logs without touch in any running service.${NC}"
     echo "Answering yes to those answers can help the support to troubleshoot the problem."
@@ -18,6 +21,8 @@ welcomeMessage()
     echo "#################################################"
     echo "To start collecting the logs, press enter or ctrl+c to quit."
     read p
+    echo "Write any text that will identify you for NISP Support Team. Can be e-mail, name, e-mail subject, company name etc."
+    read identity_string
 }
 
 checkLinuxDistro()
@@ -107,7 +112,7 @@ encryptLogCollection()
 
 uploadLogCollection()
 {
-    echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to Support Team...${NC}"
+    echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to NISP Support Team...${NC}"
     curl_response=$(curl -s -w "\n%{http_code}" -F "file=@${encrypted_file_name}" "${upload_url}")
     if [ $? -ne 0 ]
     then
