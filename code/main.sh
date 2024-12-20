@@ -51,7 +51,7 @@ main()
     getXorgData
     getNvidiaInfo
     getDcvData
-    getDcvDataAfterReboot
+    #getDcvDataAfterReboot
     runDcvgldiag
     compressLogCollection
     encryptLogCollection
