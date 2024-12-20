@@ -22,7 +22,7 @@ welcomeMessage()
     echo "To start collecting the logs, press enter or ctrl+c to quit."
     read p
     echo "Write any text that will identify you for NISP Support Team. Can be e-mail, name, e-mail subject, company name etc."
-    read identity_string
+    read identifier_string
 }
 
 checkLinuxDistro()
@@ -119,13 +119,17 @@ uploadLogCollection()
         echo "Failed to upload the file!"
         exit 23
     else
+        echo -e "\nUpload successful!"
         curl_http_body=$(echo $curl_response | cut -d' ' -f1)
         curl_http_status=$(echo $curl_response | cut -d' ' -f2)
         curl_filename=$(echo "$curl_http_body" | tr -d '\r\n')
-        echo -e "\nUpload successful!"
-        echo "GPG Password: ${encrypt_password}"
-        echo "File name: ${curl_filename}"
-        echo -e "\nPlease send the File name and the GPG password to the support team."
+        curl_response=$(curl -s -w "\n%{http_code}" -X POST -d "encrypt_password=${encrypt_password}" -d "curl_filename=${curl_filename}" -d "identifier_string=${identifier_string}" "$notify_url")
+        if [ $? -ne 0 ]
+        then
+            echo "Failed to notificate the NISP Support Team about the uploaded file. Please send an e-mail."
+        else
+            echo "NISP Support Team was notified about the file!"
+        fi
     fi
 }
 

@@ -7,11 +7,12 @@ BOLD='\033[1m'
 temp_dir="tmp/"
 compressed_file_name="dcv_logs_collection.tar.gz"
 encrypted_file_name="${compressed_file_name}.gpg"
-identity_string=""
+identifier_string=""
 encrypt_length="32"
 encrypt_password=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9@#$%^&*()-_=+' | head -c "${encrypt_length}")
 upload_domain="https://dcv-logs.ni-sp.com"
 upload_url="${upload_domain}/upload.php"
+notify_url="${upload_domain}/notify.php"
 curl_response=""
 curl_http_body=""
 curl_http_status=""
