@@ -127,7 +127,7 @@ uploadLogCollection()
         then
             echo "Failed to notificate the NISP Support Team about the uploaded file. Please send an e-mail."
         else
-            echo "NISP Support Team was notified about the file!"
+            echo "${GREEN}NISP Support Team was notified about the file!${NC}"
         fi
     fi
 }
@@ -139,7 +139,7 @@ removeTempFiles()
     rm -f $encrypted_file_name
     rm -f $encrypted_file_name
 
-    echo -e "${GREEN}Do you want to delete the ${$compressed_file_name}?${NC}"
+    echo -e "${GREEN}Do you want to delete the ${compressed_file_name}?${NC}"
     echo "If you have no internet to upload the file, you can manually send to NISP Support Team."
     echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
     read user_answer
