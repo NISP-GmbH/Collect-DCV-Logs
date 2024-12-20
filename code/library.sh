@@ -10,14 +10,13 @@ welcomeMessage()
     echo -e "Check all of our guides and tools: https://github.com/NISP-GmbH/Guides"
     echo "#################################################"
     echo "This script will collect important logs to help you to find problems in DCV server and eventually additional components."
-    echo -e "${GREEN}By default the script will not restart any service without your approval. So if you do not agree when asked, this script will collect all logs without touch in any running service.${NC}"
-    echo "Answering yes to those answers can help the support to troubleshoot the problem."
+    echo -e "${GREEN}By default the script will not restart any service without your approval.${NC}"
     echo "If is possible, please execute this script inside of Xorg session (GUI session), so we can collect some useful informations."
     echo "#################################################"
     echo -e "${GREEN}We strongly recommend that you have the follow packages installed: nice-dcv-gl, nice-dcv-gltest and nice-xdcv.${NC}"
     echo "#################################################"
-    echo -e "${GREEN}In the end, the file will be uploaded to our cloud storage and you will receive a file name and a GPG password to send to Support Team.${NC}"
-    echo "Note: We do not store the GPG password, so we can not open the file if you not send the key."
+    echo -e "${GREEN}In the end, an encrypted file will be created, then it will be securely uploaded to NISP and a notification will be sent to NISP Support Team.${NC}"
+    echo "If you do not have internet acess when executing this script, you will have an option to store the file in the end."
     echo "#################################################"
     echo "To start collecting the logs, press enter or ctrl+c to quit."
     read p
@@ -138,15 +137,16 @@ removeTempFiles()
     echo -e "Cleaning temp files..."
     rm -rf $temp_dir
     rm -f $encrypted_file_name
-    rm -f $compressed_file_name
+    rm -f $encrypted_file_name
 
-    echo -e "${GREEN}Do you want to delete the ${encrypted_file_name}?${NC}"
+    echo -e "${GREEN}Do you want to delete the ${$compressed_file_name}?${NC}"
+    echo "If you have no internet to upload the file, you can manually send to NISP Support Team."
     echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
     read user_answer
 
     if echo $user_answer | egrep -iq "(y|yes)"
     then
-        rm -f $encrypted_file_name
+        rm -f $compressed_file_name
     fi
 }
 
