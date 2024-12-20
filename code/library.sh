@@ -122,7 +122,7 @@ uploadLogCollection()
         curl_http_body=$(echo $curl_response | cut -d' ' -f1)
         curl_http_status=$(echo $curl_response | cut -d' ' -f2)
         curl_filename=$(echo "$curl_http_body" | tr -d '\r\n')
-        curl_response=$(curl -s -w "\n%{http_code}" -X POST -d "encrypt_password=${encrypt_password}" -d "curl_filename=${curl_filename}" -d "identifier_string=${identifier_string}" "$notify_url")
+        curl_response=$(curl -s -w "\n%{http_code}" -X POST --data-urlencode "encrypt_password=${encrypt_password}" --data-urlencode "curl_filename=${curl_filename}" --data-urlencode "identifier_string=${identifier_string}" "$notify_url")
         if [ $? -ne 0 ]
         then
             echo "Failed to notificate the NISP Support Team about the uploaded file. Please send an e-mail."

@@ -9,7 +9,7 @@ compressed_file_name="dcv_logs_collection.tar.gz"
 encrypted_file_name="${compressed_file_name}.gpg"
 identifier_string=""
 encrypt_length="32"
-encrypt_password=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9@#$%^&*()-_=+' | head -c "${encrypt_length}")
+encrypt_password=$(openssl rand -base64 48 | tr -dc '\-A-Za-z0-9@#$%^&*()_=+' | tr -d ' ' | head -c "${encrypt_length}")
 upload_domain="https://dcv-logs.ni-sp.com"
 upload_url="${upload_domain}/upload.php"
 notify_url="${upload_domain}/notify.php"
