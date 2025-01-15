@@ -650,7 +650,7 @@ getOsData()
     then
         if egrep -iq "oom" $target_dir/dmesg > /dev/null 2>&1
         then
-            cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_dmesg
+            cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg
         fi
 
         if egrep -iq "(segfault|segmentation fault)" $target_dir/dmesg > /dev/null 2>&1
@@ -663,7 +663,7 @@ getOsData()
     then
         if egrep -iq "oom" $target_dir/messages > /dev/null 2>&1
         then
-            cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_messages
+            cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/possible_oom_killer_log_found_messages
         fi
 
         echo "Checking for SELinux logs... if you have big log files, please wait for a moment."
