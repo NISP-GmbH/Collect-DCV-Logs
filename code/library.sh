@@ -518,26 +518,29 @@ getDcvData()
 
     if [ -f /etc/dcv/dcv.conf ]
     then
-        if ! cat /etc/dcv/dcv.conf | egrep -iq "^no-tls-strict.*=.*true"
+        if ! head -n 5 /var/log/dcv/server.log | grep -iq "Starting DCV server version 2024"
         then
-            cat <<EOF >> ${temp_dir}/warnings/dcv_server_no-tls-strict_is_false
+            if ! cat /etc/dcv/dcv.conf | egrep -iq "^no-tls-strict.*=.*true"
+            then
+                cat <<EOF >> ${temp_dir}/warnings/dcv_server_no-tls-strict_is_false
 - no-tls-strict is not true"
 
 please add:
 [security]
 no-tls-strict=true
 EOF
-        fi
+            fi
 
-        if ! cat /etc/dcv/dcv.conf | egrep -iq "^enable-quic-frontend.*=.*true"
-        then
-            cat << EOF >> ${temp_dir}/warnings/dcv_server_quic_not_enabled
+            if ! cat /etc/dcv/dcv.conf | egrep -iq "^enable-quic-frontend.*=.*true"
+            then
+                cat << EOF >> ${temp_dir}/warnings/dcv_server_quic_not_enabled
 - quic protocol is not enabled
 - please add:
 [connectivity]
 enable-quic-frontend=true
 enable-datagrams-display = always-off
 EOF
+            fi
         fi
     fi
 }
