@@ -444,6 +444,7 @@ getDcvData()
 
     if [ -d /etc/dcv ]
     then
+        echo "Copying the dcv etc files..."
         sudo cp -r /etc/dcv $target_dir > /dev/null 2>&1
     else
         echo "not found" > $target_dir/etc_dcv_dir_not_found
@@ -451,6 +452,7 @@ getDcvData()
 
     target_dir="${temp_dir}/dcv_log/"
     
+    echo "Copying the dcv log directory..."
     if [ -d /var/log/dcv ]
     then
         sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
@@ -458,36 +460,43 @@ getDcvData()
         echo "not found" > $target_dir/var_log_dcv_not_found
     fi
 
+    echo "Checking for signal 11 events..."
     if cat ${target_dir}/dcv/*.log.* | egrep -iq "killed by signal 11"
     then
         echo "Found dcv process being killed  with signal 11 (segmentation fault)" > ${temp_dir}/warnings/dcv_logs_kill_signal_11_found
     fi
 
+    echo "Checking for not authorized channels events..."
     if cat ${target_dir}/dcv/server* | egrep -iq ".*not authorized in any channel.*"
     then
         cat ${target_dir}/dcv/server* | egrep -i ".*not authorized in any channel.*" >> ${temp_dir}/warnings/possible_owner_session_issue
     fi
     
+    echo "Checking for RLM permission issues..."
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
         echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" > ${temp_dir}/warnings/rlm_failed_permission_denied
     fi
 
+    echo "Checking for client access denied events..."
     if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
     then
         echo ">>> client will not be allowed to connect <<< message found in server.log files" > ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
     fi
 
+    echo "Checking for too many files warnings..."
     if cat ${target_dir}/dcv/server* | egrep -iq ".*too many files open.*"
     then
         echo ">>> too many files open <<< message found in server.log files" > ${temp_dir}/warnings/too_many_files_open
     fi
 
+    echo "Checking if QUIC is being started..."
     if cat ${target_dir}/dcv/server.log | egrep -iq "QUIC frontend enabled"
     then
         temp_quic_enabled=true
     fi
 
+    echo "Checking for license and network related events..."
     if cat ${target_dir}/dcv/server* | egrep -iq "bad.*hostname.*license"
     then
         echo "Found issue to resolve server hostname for license service" >> ${temp_dir}/warnings/bad_server_hostname_in_license_issue
@@ -503,6 +512,7 @@ getDcvData()
         fi
     fi
 
+    echo "Checking for old DCV Viewer versions..."
     if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" 
     then
         cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" >> ${temp_dir}/warnings/found_dcv_viewer_2022
@@ -651,6 +661,7 @@ getOsData()
     ps aux --forest > ${target_dir}/ps_aux_--forest 2>&1
     pstree -p > ${target_dir}/pstree 2>&1
 
+    echo "Copying some /var/log/ relevant files..."
     target_dir="${temp_dir}/os_log/"
     sudo cp /var/log/dmesg* $target_dir > /dev/null 2>&1
     sudo cp /var/log/messages* $target_dir > /dev/null 2>&1
@@ -697,10 +708,17 @@ getOsData()
 
     target_dir="${temp_dir}/journal_log"
     echo "Collecting journalctl data... if you have a long history stored, please wait for a moment."
+
+    echo "Reading journalctl log..."
     sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log 2>&1
+
+    echo "Reading possible selinux log..."
     sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
+
+    echo "Reading possible apparmor log..."
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
 
+    echo "Looking for segmentation fault events..."
     if journalctl --no-page | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
     then
         journalctl --no-page | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
