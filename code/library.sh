@@ -488,6 +488,11 @@ getDcvData()
         temp_quic_enabled=true
     fi
 
+    if cat ${target_dir}/dcv/server* | egrep -iq "bad.*hostname.*license"
+    then
+        echo "Found issue to resolve server hostname for license service" >> ${temp_dir}/warnings/bad_server_hostname_in_license_issue
+    fi
+
     if ! cat ${target_dir}/dcv/server* | egrep -iq "quictransport"
     then
         if $temp_quic_enabled
