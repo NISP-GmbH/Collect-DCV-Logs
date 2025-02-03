@@ -39,6 +39,7 @@ main()
     welcomeMessage
     createTempDirs
     checkPackagesVersions
+    getSystemdData
     getOsData
     getEnvironmentVars
     getHwData

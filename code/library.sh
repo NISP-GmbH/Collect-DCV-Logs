@@ -153,7 +153,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log systemd_info
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -584,6 +584,14 @@ getNvidiaInfo()
         echo "Executing nvidia-smi generic query. The test will take up to >>> $timeout_seconds <<< seconds."
         timeout $timeout_seconds nvidia-smi &> ${target_dir}/nvidia-smi_command
     fi
+}
+
+getSystemdData()
+{
+    echo "Collecting all SystemD relevant data..."
+    target_dir="${temp_dir}/systemd_info/"
+    sudo cp -a /etc/systemd/system/dcv*  ${target_dir}
+
 }
 
 getOsData()

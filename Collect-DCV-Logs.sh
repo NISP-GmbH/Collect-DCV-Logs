@@ -169,7 +169,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log systemd_info
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -504,6 +504,11 @@ getDcvData()
         temp_quic_enabled=true
     fi
 
+    if cat ${target_dir}/dcv/server* | egrep -iq "bad.*hostname.*license"
+    then
+        echo "Found issue to resolve server hostname for license service" >> ${temp_dir}/warnings/bad_server_hostname_in_license_issue
+    fi
+
     if ! cat ${target_dir}/dcv/server* | egrep -iq "quictransport"
     then
         if $temp_quic_enabled
@@ -534,26 +539,29 @@ getDcvData()
 
     if [ -f /etc/dcv/dcv.conf ]
     then
-        if ! cat /etc/dcv/dcv.conf | egrep -iq "^no-tls-strict.*=.*true"
+        if ! head -n 5 /var/log/dcv/server.log | grep -iq "Starting DCV server version 2024"
         then
-            cat <<EOF >> ${temp_dir}/warnings/dcv_server_no-tls-strict_is_false
+            if ! cat /etc/dcv/dcv.conf | egrep -iq "^no-tls-strict.*=.*true"
+            then
+                cat <<EOF >> ${temp_dir}/warnings/dcv_server_no-tls-strict_is_false
 - no-tls-strict is not true"
 
 please add:
 [security]
 no-tls-strict=true
 EOF
-        fi
+            fi
 
-        if ! cat /etc/dcv/dcv.conf | egrep -iq "^enable-quic-frontend.*=.*true"
-        then
-            cat << EOF >> ${temp_dir}/warnings/dcv_server_quic_not_enabled
+            if ! cat /etc/dcv/dcv.conf | egrep -iq "^enable-quic-frontend.*=.*true"
+            then
+                cat << EOF >> ${temp_dir}/warnings/dcv_server_quic_not_enabled
 - quic protocol is not enabled
 - please add:
 [connectivity]
 enable-quic-frontend=true
 enable-datagrams-display = always-off
 EOF
+            fi
         fi
     fi
 }
@@ -592,6 +600,14 @@ getNvidiaInfo()
         echo "Executing nvidia-smi generic query. The test will take up to >>> $timeout_seconds <<< seconds."
         timeout $timeout_seconds nvidia-smi &> ${target_dir}/nvidia-smi_command
     fi
+}
+
+getSystemdData()
+{
+    echo "Collecting all SystemD relevant data..."
+    target_dir="${temp_dir}/systemd_info/"
+    sudo cp -a /etc/systemd/system/dcv*  ${target_dir}
+
 }
 
 getOsData()
@@ -666,7 +682,7 @@ getOsData()
     then
         if egrep -iq "oom" $target_dir/dmesg > /dev/null 2>&1
         then
-            cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_dmesg
+            cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg
         fi
 
         if egrep -iq "(segfault|segmentation fault)" $target_dir/dmesg > /dev/null 2>&1
@@ -679,7 +695,7 @@ getOsData()
     then
         if egrep -iq "oom" $target_dir/messages > /dev/null 2>&1
         then
-            cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_messages
+            cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/possible_oom_killer_log_found_messages
         fi
 
         echo "Checking for SELinux logs... if you have big log files, please wait for a moment."
@@ -860,6 +876,7 @@ main()
     welcomeMessage
     createTempDirs
     checkPackagesVersions
+    getSystemdData
     getOsData
     getEnvironmentVars
     getHwData
