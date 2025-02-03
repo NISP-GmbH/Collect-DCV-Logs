@@ -307,7 +307,7 @@ getSssdData()
     fi
 
     detect_service=""
-    detect_service=$(sudo ps aux | egrep -i '[s]ssd')
+    detect_service=$(sudo ps aux | egrep -iv "NI SP GmbH" | egrep -i '[s]ssd')
     if [[ "${detect_service}x" != "x" ]]
     then
         echo "$detect_service" > $temp_dir/warnings/sssd_is_running
@@ -336,7 +336,7 @@ getXfceLog()
     echo "Collecting all XFCE relevant info..."
     target_dir="${temp_dir}/xfce_log/"
 
-    sudo journalctl --no-page | egrep -i xfce >> ${target_dir}/journalctl_xfce_log
+    sudo journalctl --no-page | egrep -i "[x]fce" >> ${target_dir}/journalctl_xfce_log
 }
 
 getGdmData()
@@ -664,12 +664,12 @@ getOsData()
 
     if [ -f $target_dir/dmesg ]
     then
-        if egrep -iq "oom" $target_dir/dmesg > /dev/null 2>&1
+        if cat $target_dir/dmesg | egrep -i "oom" > /dev/null 2>&1
         then
-            cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg
+            cat $target_dir/dmesg | egrep -i "(oom|killed|killer)" > ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg
         fi
 
-        if egrep -iq "(segfault|segmentation fault)" $target_dir/dmesg > /dev/null 2>&1
+        if cat $target_dir/dmesg | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
         then
             cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
         fi
@@ -677,9 +677,9 @@ getOsData()
 
     if [ -f $target_dir/messages ]
     then
-        if egrep -iq "oom" $target_dir/messages > /dev/null 2>&1
+        if cat $target_dir/messages | egrep -iq "oom" > /dev/null 2>&1
         then
-            cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/possible_oom_killer_log_found_messages
+            cat $target_dir/messages | egrep -i "(oom|killed|killer)" > ${temp_dir}/warnings/possible_oom_killer_log_found_messages
         fi
 
         echo "Checking for SELinux logs... if you have big log files, please wait for a moment."
@@ -688,7 +688,7 @@ getOsData()
             echo "$line" > ${temp_dir}/warnings/selinux_is_preventing_dcv
         done
 
-        if egrep -iq "(segfault|segmentation fault)" $target_dir/messages > /dev/null 2>&1
+        if cat $target_dir/messages | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
         then
             cat $target_dir/messages | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
         fi
