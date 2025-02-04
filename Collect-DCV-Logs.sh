@@ -169,7 +169,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log systemd_info
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -323,7 +323,7 @@ getSssdData()
     fi
 
     detect_service=""
-    detect_service=$(sudo ps aux | egrep -i '[s]ssd')
+    detect_service=$(sudo ps aux | egrep -iv "NI SP GmbH" | egrep -i '[s]ssd')
     if [[ "${detect_service}x" != "x" ]]
     then
         echo "$detect_service" > $temp_dir/warnings/sssd_is_running
@@ -352,7 +352,7 @@ getXfceLog()
     echo "Collecting all XFCE relevant info..."
     target_dir="${temp_dir}/xfce_log/"
 
-    sudo journalctl --no-page | egrep -i xfce >> ${target_dir}/journalctl_xfce_log
+    sudo journalctl --no-page | egrep -i "[x]fce" >> ${target_dir}/journalctl_xfce_log
 }
 
 getGdmData()
@@ -460,6 +460,7 @@ getDcvData()
 
     if [ -d /etc/dcv ]
     then
+        echo "Copying the dcv etc files..."
         sudo cp -r /etc/dcv $target_dir > /dev/null 2>&1
     else
         echo "not found" > $target_dir/etc_dcv_dir_not_found
@@ -467,6 +468,7 @@ getDcvData()
 
     target_dir="${temp_dir}/dcv_log/"
     
+    echo "Copying the dcv log directory..."
     if [ -d /var/log/dcv ]
     then
         sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
@@ -474,34 +476,46 @@ getDcvData()
         echo "not found" > $target_dir/var_log_dcv_not_found
     fi
 
+    echo "Checking for signal 11 events..."
     if cat ${target_dir}/dcv/*.log.* | egrep -iq "killed by signal 11"
     then
         echo "Found dcv process being killed  with signal 11 (segmentation fault)" > ${temp_dir}/warnings/dcv_logs_kill_signal_11_found
     fi
 
+    echo "Checking for not authorized channels events..."
     if cat ${target_dir}/dcv/server* | egrep -iq ".*not authorized in any channel.*"
     then
         cat ${target_dir}/dcv/server* | egrep -i ".*not authorized in any channel.*" >> ${temp_dir}/warnings/possible_owner_session_issue
     fi
     
+    echo "Checking for RLM permission issues..."
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
         echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" > ${temp_dir}/warnings/rlm_failed_permission_denied
     fi
 
+    echo "Checking for client access denied events..."
     if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
     then
         echo ">>> client will not be allowed to connect <<< message found in server.log files" > ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
     fi
 
+    echo "Checking for too many files warnings..."
     if cat ${target_dir}/dcv/server* | egrep -iq ".*too many files open.*"
     then
         echo ">>> too many files open <<< message found in server.log files" > ${temp_dir}/warnings/too_many_files_open
     fi
 
+    echo "Checking if QUIC is being started..."
     if cat ${target_dir}/dcv/server.log | egrep -iq "QUIC frontend enabled"
     then
         temp_quic_enabled=true
+    fi
+
+    echo "Checking for license and network related events..."
+    if cat ${target_dir}/dcv/server* | egrep -iq "bad.*hostname.*license"
+    then
+        echo "Found issue to resolve server hostname for license service" >> ${temp_dir}/warnings/bad_server_hostname_in_license_issue
     fi
 
     if ! cat ${target_dir}/dcv/server* | egrep -iq "quictransport"
@@ -514,6 +528,7 @@ getDcvData()
         fi
     fi
 
+    echo "Checking for old DCV Viewer versions..."
     if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" 
     then
         cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" >> ${temp_dir}/warnings/found_dcv_viewer_2022
@@ -534,26 +549,29 @@ getDcvData()
 
     if [ -f /etc/dcv/dcv.conf ]
     then
-        if ! cat /etc/dcv/dcv.conf | egrep -iq "^no-tls-strict.*=.*true"
+        if ! head -n 5 /var/log/dcv/server.log | grep -iq "Starting DCV server version 2024"
         then
-            cat <<EOF >> ${temp_dir}/warnings/dcv_server_no-tls-strict_is_false
+            if ! cat /etc/dcv/dcv.conf | egrep -iq "^no-tls-strict.*=.*true"
+            then
+                cat <<EOF >> ${temp_dir}/warnings/dcv_server_no-tls-strict_is_false
 - no-tls-strict is not true"
 
 please add:
 [security]
 no-tls-strict=true
 EOF
-        fi
+            fi
 
-        if ! cat /etc/dcv/dcv.conf | egrep -iq "^enable-quic-frontend.*=.*true"
-        then
-            cat << EOF >> ${temp_dir}/warnings/dcv_server_quic_not_enabled
+            if ! cat /etc/dcv/dcv.conf | egrep -iq "^enable-quic-frontend.*=.*true"
+            then
+                cat << EOF >> ${temp_dir}/warnings/dcv_server_quic_not_enabled
 - quic protocol is not enabled
 - please add:
 [connectivity]
 enable-quic-frontend=true
 enable-datagrams-display = always-off
 EOF
+            fi
         fi
     fi
 }
@@ -592,6 +610,14 @@ getNvidiaInfo()
         echo "Executing nvidia-smi generic query. The test will take up to >>> $timeout_seconds <<< seconds."
         timeout $timeout_seconds nvidia-smi &> ${target_dir}/nvidia-smi_command
     fi
+}
+
+getSystemdData()
+{
+    echo "Collecting all SystemD relevant data..."
+    target_dir="${temp_dir}/systemd_info/"
+    sudo cp -a /etc/systemd/system/dcv*  ${target_dir}
+
 }
 
 getOsData()
@@ -651,6 +677,7 @@ getOsData()
     ps aux --forest > ${target_dir}/ps_aux_--forest 2>&1
     pstree -p > ${target_dir}/pstree 2>&1
 
+    echo "Copying some /var/log/ relevant files..."
     target_dir="${temp_dir}/os_log/"
     sudo cp /var/log/dmesg* $target_dir > /dev/null 2>&1
     sudo cp /var/log/messages* $target_dir > /dev/null 2>&1
@@ -664,12 +691,12 @@ getOsData()
 
     if [ -f $target_dir/dmesg ]
     then
-        if egrep -iq "oom" $target_dir/dmesg > /dev/null 2>&1
+        if cat $target_dir/dmesg | egrep -i "oom" > /dev/null 2>&1
         then
-            cat $target_dir/dmesg | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_dmesg
+            cat $target_dir/dmesg | egrep -i "(oom|killed|killer)" > ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg
         fi
 
-        if egrep -iq "(segfault|segmentation fault)" $target_dir/dmesg > /dev/null 2>&1
+        if cat $target_dir/dmesg | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
         then
             cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
         fi
@@ -677,9 +704,9 @@ getOsData()
 
     if [ -f $target_dir/messages ]
     then
-        if egrep -iq "oom" $target_dir/messages > /dev/null 2>&1
+        if cat $target_dir/messages | egrep -iq "oom" > /dev/null 2>&1
         then
-            cat $target_dir/messages | egrep -i "(oom|killed)" > ${temp_dir}/warnings/oom_killer_log_found_messages
+            cat $target_dir/messages | egrep -i "(oom|killed|killer)" > ${temp_dir}/warnings/possible_oom_killer_log_found_messages
         fi
 
         echo "Checking for SELinux logs... if you have big log files, please wait for a moment."
@@ -688,7 +715,7 @@ getOsData()
             echo "$line" > ${temp_dir}/warnings/selinux_is_preventing_dcv
         done
 
-        if egrep -iq "(segfault|segmentation fault)" $target_dir/messages > /dev/null 2>&1
+        if cat $target_dir/messages | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
         then
             cat $target_dir/messages | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
         fi
@@ -697,10 +724,17 @@ getOsData()
 
     target_dir="${temp_dir}/journal_log"
     echo "Collecting journalctl data... if you have a long history stored, please wait for a moment."
+
+    echo "Reading journalctl log..."
     sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log 2>&1
+
+    echo "Reading possible selinux log..."
     sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
+
+    echo "Reading possible apparmor log..."
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
 
+    echo "Looking for segmentation fault events..."
     if journalctl --no-page | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
     then
         journalctl --no-page | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
@@ -860,6 +894,7 @@ main()
     welcomeMessage
     createTempDirs
     checkPackagesVersions
+    getSystemdData
     getOsData
     getEnvironmentVars
     getHwData
