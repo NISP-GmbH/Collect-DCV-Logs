@@ -44,7 +44,7 @@ checkLinuxDistro()
         if [ -f /etc/redhat-release ]
         then
             release_info=$(cat /etc/redhat-release)
-            if echo $release_info | egrep -iq "(centos|almalinux|rocky|red hat|redhat)"
+            if echo $release_info | egrep -iq "(centos|almalinux|rocky|red hat|redhat|oracle)"
             then
                 redhat_distro_based="true"
             fi

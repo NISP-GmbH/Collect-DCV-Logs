@@ -60,7 +60,7 @@ checkLinuxDistro()
         if [ -f /etc/redhat-release ]
         then
             release_info=$(cat /etc/redhat-release)
-            if echo $release_info | egrep -iq "(centos|almalinux|rocky|red hat|redhat)"
+            if echo $release_info | egrep -iq "(centos|almalinux|rocky|red hat|redhat|oracle)"
             then
                 redhat_distro_based="true"
             fi
@@ -323,7 +323,7 @@ getSssdData()
     fi
 
     detect_service=""
-    detect_service=$(sudo ps aux | egrep -iv "NI SP GmbH" | egrep -i '[s]ssd')
+    detect_service=$(sudo ps aux | egrep -iv "${NISPGMBHHASH}" | egrep -i '[s]ssd')
     if [[ "${detect_service}x" != "x" ]]
     then
         echo "$detect_service" > $temp_dir/warnings/sssd_is_running
@@ -689,6 +689,24 @@ getOsData()
     sudo cp -r /var/log/boot* $target_dir > /dev/null 2>&1
     sudo cp -r /var/log/kdump* $target_dir > /dev/null 2>&1
 
+    if [ -f ${target_dir}/deb_packages_list ]
+    then
+        pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
+        if cat ${target_dir}/deb_packages_list | egrep -iq "${pkg_names}"
+        then
+            cat ${target_dir}/deb_packages_list | egrep -iq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
+        fi
+    fi
+
+    if [ -f ${target_dir}/rpm_packages_list ]
+    then
+        pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
+        if cat ${target_dir}/rpm_packages_list | egrep -iq "${pkg_names}"
+        then
+            cat ${target_dir}/rpm_packages_list | egrep -iq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
+        fi
+    fi
+
     if [ -f $target_dir/dmesg ]
     then
         if cat $target_dir/dmesg | egrep -i "oom" > /dev/null 2>&1
@@ -823,7 +841,7 @@ getXorgData()
     fi
 
     detect_service=""
-    detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz")
+    detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz" | egrep -iv "${NISPGMBHHASH}")
     if [[ "${detect_service}x" != "x" ]]
     then
         
@@ -879,6 +897,7 @@ ubuntu_minor_version=""
 redhat_distro_based="false"
 redhat_distro_based_version=""
 force_flag="false"
+NISPGMBHHASH="NISPGMBHHASH"
 
 for arg in "$@"
 do
