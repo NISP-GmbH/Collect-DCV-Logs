@@ -791,6 +791,8 @@ getSmartInfo()
     if ! command -v smartctl &> /dev/null
     then
         return 1
+    else
+        echo "Checking S.M.A.R.T...."
     fi
 
     target_dir="${temp_dir}/smart_info"
@@ -855,11 +857,11 @@ getSmartInfo()
         # Check for warnings
         check_warnings "$local_storage_device"
     done
-
 }
 
 getSmartWarnings()
 {
+    echo "Checking S.M.A.R.T. warnings..."
     local disk="$1"
     local disk_name=$(basename "$disk")
     
