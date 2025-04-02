@@ -772,6 +772,11 @@ getOsData()
 
 getSmartInfo()
 {
+    if ! command -v smartctl &> /dev/null
+    then
+        return 1
+    fi
+
     target_dir="${temp_dir}/smart_info"
     smart_disk_report="${target_dir}/smart_disk_report_$(date +%Y%m%d).txt"
     smart_disk_warnings="${temp_dir}/warnings/smart_disk_warnings_$(date +%Y%m%d).txt"
