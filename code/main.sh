@@ -24,6 +24,9 @@ ubuntu_minor_version=""
 redhat_distro_based="false"
 redhat_distro_based_version=""
 force_flag="false"
+local_storage_devices=""
+smart_disk_report=""
+smart_disk_warnings=""
 NISPGMBHHASH="NISPGMBHHASH"
 
 for arg in "$@"
@@ -38,12 +41,14 @@ done
 main()
 {
     welcomeMessage
+    setupUsefulTools
     createTempDirs
     checkPackagesVersions
     getSystemdData
     getOsData
     getEnvironmentVars
     getHwData
+    getSmartInfo
     getGdmData
     getXfceLog
     getKerberosData

@@ -99,6 +99,32 @@ checkLinuxDistro()
     fi
 }
 
+setupUsefulTools()
+{
+    if ! command -v smartctl &> /dev/null
+    then
+        if $ubuntu_distro
+        then
+            if command -v apt-get &> /dev/null
+            then
+                sudo apt-get update
+                sudo apt-get install -y smartmontools
+            fi
+        fi
+
+        if $redhat_distro_based
+        then
+            if command -v dnf &> /dev/null
+            then
+                dnf install -y smartmontools
+            elif command -v yum &> /dev/null
+            then
+                yum install -y smartmontools
+            fi
+        fi
+    fi
+}
+
 compressLogCollection()
 {
     tar czf $compressed_file_name $temp_dir
@@ -153,7 +179,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log systemd_info
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log systemd_info smart_info
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -742,6 +768,149 @@ getOsData()
         journalctl --no-page | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
     fi
 
+}
+
+getSmartInfo()
+{
+    target_dir="${temp_dir}/smart_info"
+    smart_disk_report="${target_dir}/smart_disk_report_$(date +%Y%m%d).txt"
+    smart_disk_warnings="${temp_dir}/warnings/smart_disk_warnings_$(date +%Y%m%d).txt"
+    local_storage_devices=$(lsblk -dpno NAME 2>/dev/null | grep -v -E "loop|ram|rom")
+    
+    if [ -z "$local_storage_devices" ]
+    then
+        echo "lsblk failed or returned no disks, trying alternative method" >> "$smart_disk_report"
+        local_storage_devices=$(find /dev -regex "/dev/[hsv]d[a-z]" -o -regex "/dev/nvme[0-9]n[0-9]" 2>/dev/null)
+    
+        if [ -z "$local_storage_devices" ]
+        then
+            echo "Alternative method failed, trying /proc/partitions" >> "$smart_disk_report"
+            local_storage_devices=$(awk '{print $4}' /proc/partitions 2>/dev/null | grep -E "^[hsv]d[a-z]$|^nvme[0-9]n[0-9]$" | sed 's/^/\/dev\//')
+        fi
+    fi
+
+    for local_storage_device in $local_storage_devices
+    do
+        if [ ! -b "$local_storage_device" ]
+        then
+            echo "$local_storage_device is not a valid block device, skipping" >> "$smart_disk_report"
+            echo "" >> "$smart_disk_report"
+            continue
+        fi
+
+        # Check if disk supports SMART with a timeout to prevent hangs on problematic devices
+        if ! timeout 10 smartctl -i "$local_storage_device" 2>/dev/null | grep -q "SMART support is: Enabled"
+        then
+            echo "SMART not available or not enabled on $local_storage_device" >> "$smart_disk_report"
+            echo "" >> "$OUTPUT_FILE"
+            continue
+        fi
+
+        # Get basic information with timeout
+        echo "--- Basic Information ---" >> "$smart_disk_report"
+        timeout 5 smartctl -i "$local_storage_device" >> "$smart_disk_report" 2>&1
+        echo "" >> $smart_disk_report
+    
+        # Get health status with timeout
+        echo "--- Health Status ---" >> "$smart_disk_report"
+        timeout 5 smartctl -H "$local_storage_device" >> "$smart_disk_report" 2>&1
+        echo "" >> $smart_disk_report
+    
+        # Get SMART attributes with timeout
+        echo "--- SMART Attributes ---" >> "$smart_disk_report"
+        timeout 5 smartctl -A "$local_storage_device" >> "$smart_disk_report" 2>&1
+        echo "" >> " $smart_disk_report"
+    
+        # Get error logs with timeout
+        echo "--- Error Log ---" >> "$smart_disk_report"
+        timeout 5 smartctl -l error "$local_storage_device" >> "$smart_disk_report" 2>&1
+        echo "" >> $smart_disk_report
+    
+        # Get self-test logs with timeout
+        echo "--- Self-Test Log ---" >> "$smart_disk_report"
+        timeout 5 smartctl -l selftest "$local_storage_device" >> "$smart_disk_report" 2>&1
+        echo "" >> $smart_disk_report
+    
+        # Check for warnings
+        check_warnings "$local_storage_device"
+    done
+
+}
+
+getSmartWarnings()
+{
+    local disk="$1"
+    local disk_name=$(basename "$disk")
+    
+    # Check overall health
+    health=$(smartctl -H "$disk" 2>/dev/null)
+    if echo "$health" | grep -q "FAILED"
+    then
+        echo "WARNING: $disk_name - SMART overall health test FAILED!" >> "$smart_disk_warnings"
+    fi
+    
+    # Check for reallocated sectors
+    realloc=$(smartctl -A "$disk" 2>/dev/null | grep "Reallocated_Sector_Ct")
+    if [[ -n "$realloc" ]]
+    then
+        value=$(echo "$realloc" | awk '{print $10}')
+        if [[ "$value" -gt 0 ]]
+        then
+            echo "WARNING: $disk_name - Reallocated sectors found: $value" >> "$smart_disk_warnings"
+        fi
+    fi
+    
+    # Check for pending sectors
+    pending=$(smartctl -A "$disk" 2>/dev/null | grep "Current_Pending_Sector")
+    if [[ -n "$pending" ]]
+    then
+        value=$(echo "$pending" | awk '{print $10}')
+        if [[ "$value" -gt 0 ]]
+        then
+            echo "WARNING: $disk_name - Pending sectors found: $value" >> "$smart_disk_warnings"
+        fi
+    fi
+    
+    # Check for offline uncorrectable sectors
+    uncorrect=$(smartctl -A "$disk" 2>/dev/null | grep "Offline_Uncorrectable")
+    if [[ -n "$uncorrect" ]]
+    then
+        value=$(echo "$uncorrect" | awk '{print $10}')
+        if [[ "$value" -gt 0 ]]
+        then
+            echo "WARNING: $disk_name - Offline uncorrectable sectors found: $value" >> "$smart_disk_warnings"
+        fi
+    fi
+    
+    # Check temperature (if available)
+    temp=$(smartctl -A "$disk" 2>/dev/null | grep -E "Temperature_Celsius|Airflow_Temperature_Cel")
+    if [[ -n "$temp" ]]
+    then
+        temp_value=$(echo "$temp" | head -1 | awk '{print $10}')
+        if [[ "$temp_value" -gt 55 ]]
+        then
+            echo "WARNING: $disk_name - High temperature detected: ${temp_value}°C" >> "$smart_disk_warnings"
+        fi
+    fi
+    
+    # Check for errors in error log
+    error_count=$(smartctl -l error "$disk" 2>/dev/null | grep -c "Error")
+    if [[ "$error_count" -gt 0 ]]
+    then
+        echo "WARNING: $disk_name - SMART Error Log has $error_count entries" >> "$smart_disk_warnings"
+    fi
+    
+    # Check power-on hours (just information, not a warning)
+    hours=$(smartctl -A "$disk" 2>/dev/null | grep "Power_On_Hours")
+    if [[ -n "$hours" ]];
+    then
+        hours_value=$(echo "$hours" | awk '{print $10}')
+        if [[ "$hours_value" -gt 43800 ]]
+        then
+            # More than 5 years (24*365*5)
+            echo "INFO: $disk_name - Drive has been running for more than 5 years ($hours_value hours)" >> "$smart_disk_warnings"
+        fi
+    fi
 }
 
 getXorgData()
