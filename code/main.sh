@@ -24,6 +24,7 @@ ubuntu_minor_version=""
 redhat_distro_based="false"
 redhat_distro_based_version=""
 force_flag="false"
+NISPGMBHHASH="NISPGMBHHASH"
 
 for arg in "$@"
 do
