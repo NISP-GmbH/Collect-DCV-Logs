@@ -802,7 +802,7 @@ getSmartInfo()
         if ! timeout 10 smartctl -i "$local_storage_device" 2>/dev/null | grep -q "SMART support is: Enabled"
         then
             echo "SMART not available or not enabled on $local_storage_device" >> "$smart_disk_report"
-            echo "" >> "$OUTPUT_FILE"
+            echo "" >> "$smart_disk_report"
             continue
         fi
 
