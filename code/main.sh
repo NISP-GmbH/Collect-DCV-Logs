@@ -1,4 +1,5 @@
 # global vars
+YELLOW='\033[0;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -24,6 +25,12 @@ ubuntu_minor_version=""
 redhat_distro_based="false"
 redhat_distro_based_version=""
 force_flag="false"
+report_only="false"
+collect_log_only="false"
+option_selected="1"
+dcv_report_dir_name="dcv_report"
+dcv_report_file_name="dcv_report.txt"
+dcv_report_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_file_name}"
 local_storage_devices=""
 smart_disk_report=""
 smart_disk_warnings=""
@@ -31,11 +38,17 @@ NISPGMBHHASH="NISPGMBHHASH"
 
 for arg in "$@"
 do
-    if [ "$arg" = "--force" ]
-    then
-        force_flag=true
-        break
-    fi
+	case $arg in
+		--force)
+        	force_flag=true
+		;;
+		--report-only)
+			report_only=true
+		;;
+		--collect_log_only)
+			collect_log_only=true
+		;;
+	esac
 done
 
 main()

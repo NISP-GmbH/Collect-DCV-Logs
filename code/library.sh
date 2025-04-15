@@ -9,19 +9,56 @@ welcomeMessage()
     echo -e "${GREEN}Welcome to NISP DCV Collect Logs tool!${NC}"
     echo -e "Check all of our guides and tools: https://github.com/NISP-GmbH/Guides"
     echo "#################################################"
-    echo "This script will collect important logs to help you to find problems in DCV server and eventually additional components."
-    echo -e "${GREEN}By default the script will not restart any service without your approval.${NC}"
-    echo "If is possible, please execute this script inside of Xorg session (GUI session), so we can collect some useful informations."
+	echo -e "${GREEN}Notes:${NC}"
+    echo -e "${GREEN}- The script will not restart any service.${NC}"
+    echo -e "${GREEN}- If is possible, please execute this script inside of Xorg session (GUI session).${NC}"
+    echo -e "${GREEN}- We strongly recommend that you have the follow packages installed:${NC}"
+	echo -e "${GREEN}nice-dcv-gl (if you use GPU), nice-dcv-gltest and smartctl.${NC}"
     echo "#################################################"
-    echo -e "${GREEN}We strongly recommend that you have the follow packages installed: nice-dcv-gl, nice-dcv-gltest and nice-xdcv.${NC}"
-    echo "#################################################"
-    echo -e "${GREEN}In the end, an encrypted file will be created, then it will be securely uploaded to NISP and a notification will be sent to NISP Support Team.${NC}"
-    echo "If you do not have internet acess when executing this script, you will have an option to store the file in the end."
-    echo "#################################################"
-    echo "To start collecting the logs, press enter or ctrl+c to quit."
-    read p
-    echo "Write any text that will identify you for NISP Support Team. Can be e-mail, name, e-mail subject, company name etc."
-    read identifier_string
+
+	option_selected=""
+	if [[ "$collect_log_only" == "false" && "$report_only" == "false" ]]
+	then
+		echo -e "${GREEN}Select which option do you want to proceed:${NC}"
+		echo -e "${GREEN}(1)${NC} Create a report that will look for common issues"
+		echo -e "${GREEN}(2)${NC} Collect relevant logs to send to NISP Support Team"
+		echo -e "${GREEN}Please type 1 or 2:${NC}"
+	    read option_selected
+
+		if ! echo $option_selected | egrep -iq "^(1|2)$"
+		then
+			echo "Option >>> $option_selected <<< invalid. Exiting..."
+			exit 24	
+		fi
+	elif [[ "$collect_log_only" == "true" && "$report_only" == "false" ]]
+	then
+		option_selected="2"
+	elif [[ "$collect_log_only" == "false" && "$report_only" == "true" ]]
+	then
+		option_selected="1"
+	else
+		# collect logs will always create the report
+		collect_log_only=true
+		report_only=false 
+		option_selected="2"
+	fi
+
+	case $option_selected in
+		1)
+			echo -e "${GREEN}The report will be saved in the same directory of the script with the name >>> $dcv_report_file_name <<<.${NC}"
+			report_only="true"
+		;;
+		2)
+    		echo -e "${GREEN}In the end an encrypted file will be created, then it will be securely uploaded to NISP and a notification will be sent to NISP Support Team.${NC}"
+    		echo "If you do not have internet acess when executing this script, you will have an option to store the file in the end."
+
+    		echo "Write any text that will identify you for NISP Support Team. Can be e-mail, name, e-mail subject, company name etc."
+		    read identifier_string
+		;;
+	esac
+
+    echo "To proceed, please press enter or ctrl+c to quit."
+	read p
 }
 
 checkLinuxDistro()
@@ -127,16 +164,31 @@ setupUsefulTools()
 
 compressLogCollection()
 {
+	if $report_only
+	then
+		return
+	fi
+
     tar czf $compressed_file_name $temp_dir
 }
 
 encryptLogCollection()
 {
+	if $report_only
+	then
+		return
+	fi
+
     gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "${encrypt_password}" --output "${encrypted_file_name}"  "${compressed_file_name}"
 }
 
 uploadLogCollection()
 {
+	if $report_only
+	then
+		return
+	fi
+
     echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to NISP Support Team...${NC}"
     curl_response=$(curl -s -w "\n%{http_code}" -F "file=@${encrypted_file_name}" "${upload_url}")
     if [ $? -ne 0 ]
@@ -160,26 +212,47 @@ uploadLogCollection()
 
 removeTempFiles()
 {
-    echo -e "Cleaning temp files..."
-    rm -rf $temp_dir
-    rm -f $encrypted_file_name
-    rm -f $encrypted_file_name
+    echo "Cleaning temp files..."
 
-    echo -e "${GREEN}Do you want to delete the ${compressed_file_name}?${NC}"
-    echo "If you have no internet to upload the file, you can manually send to NISP Support Team."
-    echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
-    read user_answer
+	if [ -d $temp_dir ]
+	then
+		if $report_only
+		then
+			if [ -f $dcv_report_file_name ]
+			then
+				rm -f $dcv_report_file_name
+				cp -a ${dcv_report_path} .
+				echo -e "${GREEN}The report was saved in >>> $dcv_report_file_name <<<.${NC}"
+				echo -e "${GREEN}To read with colors you can use:${NC}"
+				echo "less -R $dcv_report_file_name"
+			fi
+		fi
+		rm -rf $temp_dir
+	fi
 
-    if echo $user_answer | egrep -iq "(y|yes)"
-    then
-        rm -f $compressed_file_name
-    fi
+	if [ -f $encrypted_file_name ]
+	then
+		rm -f $encrypted_file_name
+	fi
+
+	if ! $report_only
+	then
+	    echo -e "${GREEN}Do you want to delete the ${compressed_file_name}?${NC}"
+	    echo "If you have no internet to upload the file, you can manually send to NISP Support Team."
+	    echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
+	    read user_answer
+
+	    if echo $user_answer | egrep -iq "^(y|yes)$"
+	    then
+	        rm -f ${compressed_file_name}
+	    fi
+	fi
 }
 
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log systemd_info smart_info
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log systemd_info smart_info ${dcv_report_dir_name}
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -197,7 +270,7 @@ containsVersion() {
 
 checkPackagesVersions()
 {
-    echo "Checking packages versions... depending of your server it can take up to 2 minutes..."
+    echo "Checking packages versions... depending of your server it can take up to 2 minutes..." | tee -a $dcv_report_path
     checkLinuxDistro
     target_dir="${temp_dir}/warnings/"
 
@@ -205,7 +278,7 @@ checkPackagesVersions()
     then
         if [[ "$redhat_distro_based" == "false" ]]
         then
-            echo "OS not supported" > ${target_dir}/os_not_supported
+        	echo "OS not supported" > ${target_dir}/os_not_supported
         fi
     fi
 
@@ -218,14 +291,14 @@ checkPackagesVersions()
                 echo "Package $package version $version_release might not be compatible with EL$redhat_distro_based_version" >> ${target_dir}/packages_might_not_os_compatible
             fi
         done
-
-        if cat ${target_dir}/packages_might_not_os_compatible | egrep -iq dcv
-        then
-            dcv_packages_not_compatible=$(cat ${target_dir}/packages_might_not_os_compatible | egrep -i dcv)
-            echo "Found some DCV packages not compatible:" >> ${target_dir}/dcv_packages_not_os_compatible
-            echo $dcv_packages_not_compatible >> ${target_dir}/dcv_packages_not_os_compatible
-        fi
-    fi
+		
+	    if cat ${target_dir}/packages_might_not_os_compatible | egrep -iq dcv
+	    then
+	    	dcv_packages_not_compatible=$(cat ${target_dir}/packages_might_not_os_compatible | egrep -i dcv)
+	        echo "Found some DCV packages not compatible:" | tee -a ${target_dir}/dcv_packages_not_os_compatible $dcv_report_path
+	        echo $dcv_packages_not_compatible | tee -a ${target_dir}/dcv_packages_not_os_compatible $dcv_report_path
+	    fi
+	fi
 
     if [[ "$ubuntu_distro" == "true" ]]
     then
@@ -240,47 +313,47 @@ checkPackagesVersions()
         "nice-xdcv"
         )
 
-    for package in "${dcv_packages[@]}"
-    do
-        if dpkg -s "$package" &> /dev/null
-        then
-            version=$(dpkg-query -W -f='${Version}' "$package")
+	    for package in "${dcv_packages[@]}"
+	    do
+	        if dpkg -s "$package" &> /dev/null
+	        then
+	            version=$(dpkg-query -W -f='${Version}' "$package")
+	            year=$(echo "$version" | cut -d'.' -f1)
             
-            year=$(echo "$version" | cut -d'.' -f1)
-            
-            if [[ "$ubuntu_version" == "20.04" ]]
-            then
-                min_year=2020
-            elif [[ "$ubuntu_version" == "22.04" ]]
-            then
-                min_year=2022
-            else
-                min_year=$(($(date +%Y) - 1))  # Default to last year for unknown Ubuntu versions
-            fi
+	            if [[ "$ubuntu_version" == "20.04" ]]
+	            then
+	                min_year=2020
+	            elif [[ "$ubuntu_version" == "22.04" ]]
+	            then
+	                min_year=2022
+	            else
+	                min_year=$(($(date +%Y) - 1))  # Default to last year for unknown Ubuntu versions
+	            fi
 
-            if [[ $year =~ ^[0-9]+$ ]]
-            then
-                if [[ "$year" -lt "$min_year" ]]
-                then
-                    echo "Warning: $package version $version might be too old for Ubuntu $ubuntu_version. Expected minimum year: $min_year" >> "${target_dir}/dcv_packages_version_mismatch"
-                else
-                    echo "Note: $package version $version appears to be compatible with Ubuntu $ubuntu_version" >> "${target_dir}/dcv_packages_version_info"
-                fi
-            else
-                echo "Package $package is not installed" >> "${target_dir}/dcv_packages_not_installed"
-            fi
-        fi
-    done
-    fi
+	            if [[ $year =~ ^[0-9]+$ ]]
+	            then
+	                if [[ "$year" -lt "$min_year" ]]
+	                then
+	                	echo "Warning: $package version $version might be too old for Ubuntu $ubuntu_version. Expected minimum year: $min_year" | tee -a  ${target_dir}/dcv_packages_version_mismatch ${dcv_report_path}
+	                else
+	                	echo "Note: $package version $version appears to be compatible with Ubuntu $ubuntu_version" >> "${target_dir}/dcv_packages_version_info"
+	                fi
+	            else
+	            	echo "Package $package is not installed" >> "${target_dir}/dcv_packages_not_installed"
+	            fi
+	        fi
+	    done
+	fi
 }
 
 getEnvironmentVars()
 {
     echo "Collecting environment variables..."
     target_dir="${temp_dir}/os_info/"
-    env > ${target_dir}/env_command
-    env | sort > ${target_dir}/env_sorted_command
-    printenv > ${target_dir}/printenv_command
+
+	env > ${target_dir}/env_command
+	env | sort > ${target_dir}/env_sorted_command
+	printenv > ${target_dir}/printenv_command
 
     getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | while read -r user
     do
@@ -295,7 +368,6 @@ getEnvironmentVars()
             echo "No running processes found for user $user" > ${USER_DIR}/env_file
             continue
         fi
-
         cat "/proc/$pid/environ" | tr '\0' '\n' >> "$env_file"
     done
 }
@@ -367,8 +439,9 @@ getXfceLog()
 
 getGdmData()
 {
-    echo "Collecting all GDM relevant info..."
+    echo "Collecting all GDM relevant info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/gdm_log/"
+
     if [ -f /var/log/gdm ]
     then
         sudo cp -r /var/log/gdm $target_dir > /dev/null 2>&1
@@ -400,14 +473,13 @@ getGdmData()
     then
         echo "GDM process is running" > "${target_dir}/gdm_process_status"
     else
-        echo "GDM process is not running" > "${target_dir}/gdm_process_status"
-        echo "GDM process is not running" > "${temp_dir}/warnings/gdm_is_not_running"
+        echo "GDM process is not running" | tee -a "${target_dir}/gdm_process_status" "${temp_dir}/warnings/gdm_is_not_running" $dcv_report_path
     fi
 }
 
 getHwData()
 {
-    echo "Collecting all Hardware relevant info..."
+    echo "Collecting all Hardware relevant info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/hardware_info/"
 
     if command -v lshw > /dev/null 2>&1
@@ -465,7 +537,7 @@ getDcvDataAfterReboot()
 
 getDcvData()
 {
-    echo "Collecting all DCV relevant data..."
+    echo "Collecting all DCV relevant data..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/dcv_conf/"
 
     if [ -d /etc/dcv ]
@@ -473,7 +545,7 @@ getDcvData()
         echo "Copying the dcv etc files..."
         sudo cp -r /etc/dcv $target_dir > /dev/null 2>&1
     else
-        echo "not found" > $target_dir/etc_dcv_dir_not_found
+        echo -e "${RED}/etc/dcv not found!${NC}" | tee -a $target_dir/etc_dcv_dir_not_found $dcv_report_path
     fi    
 
     target_dir="${temp_dir}/dcv_log/"
@@ -483,37 +555,41 @@ getDcvData()
     then
         sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
     else
-        echo "not found" > $target_dir/var_log_dcv_not_found
+        echo -e "${RED}/var/log/dcv not found!${NC}" | tee -a $target_dir/var_log_dcv_not_found $dcv_report_path
     fi
 
-    echo "Checking for signal 11 events..."
+    echo "Checking for signal 11 events..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/*.log.* | egrep -iq "killed by signal 11"
     then
-        echo "Found dcv process being killed  with signal 11 (segmentation fault)" > ${temp_dir}/warnings/dcv_logs_kill_signal_11_found
+        echo -e "${RED}Found DCV process being killed with signal 11 (segmentation fault)${NC}" | tee -a ${temp_dir}/warnings/dcv_logs_kill_signal_11_found $dcv_report_path
     fi
 
-    echo "Checking for not authorized channels events..."
+    echo "Checking for not authorized channels events..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq ".*not authorized in any channel.*"
     then
-        cat ${target_dir}/dcv/server* | egrep -i ".*not authorized in any channel.*" >> ${temp_dir}/warnings/possible_owner_session_issue
+		echo -e "${RED}Found NOT AUTHORIZED EVENT IN ANY CHANNEL.${NC}" | tee -a $dcv_report_path
+        cat ${target_dir}/dcv/server* | egrep -i ".*not authorized in any channel.*" | tee -a ${temp_dir}/warnings/possible_owner_session_issue $dcv_report_path
     fi
     
-    echo "Checking for RLM permission issues..."
+    echo "Checking for RLM permission issues..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
-        echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" > ${temp_dir}/warnings/rlm_failed_permission_denied
+		echo -e "${RED}Found RLM PERMISSION ISSUES...${NC}" | tee -a $dcv_report_path
+        echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" | tee -a ${temp_dir}/warnings/rlm_failed_permission_denied $dcv_report_path
     fi
 
-    echo "Checking for client access denied events..."
+    echo "Checking for client access denied events..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
     then
-        echo ">>> client will not be allowed to connect <<< message found in server.log files" > ${temp_dir}/warnings/client_will_not_be_allowed_to_connect
+		echo -e "${RED}Found CLIENT WILL NOT BE ALLOWED TO CONNECT...${NC}" | tee -a $dcv_report_path
+        echo ">>> client will not be allowed to connect <<< message found in server.log files" | tee -a ${temp_dir}/warnings/client_will_not_be_allowed_to_connect $dcv_report_path
     fi
 
-    echo "Checking for too many files warnings..."
+    echo "Checking for too many files warnings..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq ".*too many files open.*"
     then
-        echo ">>> too many files open <<< message found in server.log files" > ${temp_dir}/warnings/too_many_files_open
+		echo -e "${RED}Found TOO MANY FILES OPEN...${NC}" | tee -a $dcv_report_path
+        echo ">>> too many files open <<< message found in server.log files" | tee -a ${temp_dir}/warnings/too_many_files_open
     fi
 
     echo "Checking if QUIC is being started..."
@@ -522,47 +598,54 @@ getDcvData()
         temp_quic_enabled=true
     fi
 
-    echo "Checking for license and network related events..."
+    echo "Checking for license and network related events..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq "bad.*hostname.*license"
     then
-        echo "Found issue to resolve server hostname for license service" >> ${temp_dir}/warnings/bad_server_hostname_in_license_issue
+		echo -e "${RED}Found BAD HOSTNAME LICENSE...${NC}" | tee -a $dcv_report_path
+        echo "Found issue to resolve server hostname for license service" | tee -a ${temp_dir}/warnings/bad_server_hostname_in_license_issue $dcv_report_path
     fi
 
+	echo "Checking relevant info about QUIC..." | tee -a $dcv_report_path
     if ! cat ${target_dir}/dcv/server* | egrep -iq "quictransport"
     then
         if $temp_quic_enabled
         then
-            echo ">>> quictransport <<< was never mentioned in server.log files" > ${temp_dir}/warnings/quic_enabled_and_seems_never_used
+            echo -e "${YELLOW}QUIC is ENABLED, but >>> quictransport <<< was never mentioned in server.log files.${NC}" | tee -a ${temp_dir}/warnings/quic_enabled_and_seems_never_used $dcv_report_path
         else
-            echo ">>> quictransport <<< was never mentioned in server.log files" > ${temp_dir}/warnings/quic_disabled_and_seems_never_used
+            echo -e "${YELLOW}QUIC is DISABLED and >>> quictransport <<< was never mentioned in server.log files.${NC}" | tee -a ${temp_dir}/warnings/quic_disabled_and_seems_never_used $dcv_report_path
         fi
     fi
 
-    echo "Checking for old DCV Viewer versions..."
+    echo "Checking for old DCV Viewer versions..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" 
     then
+		echo -e "${YELLOW}Found DCV Viewer 2022 connecting.${NC}" | tee -a $dcv_report_path
         cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" >> ${temp_dir}/warnings/found_dcv_viewer_2022
     fi
 
     if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2023"
     then
+		echo -e "${YELLOW}Found DCV Viewer 2023 connecting.${NC}" | tee -a $dcv_report_path
         cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2023" >> ${temp_dir}/warnings/found_dcv_viewer_2023
     fi
 
+	echo "Checking for DCV license issues..." | tee -a $dcv_report_path
     if [ -f /var/log/dcv/server.log ]
     then
         if cat /var/log/dcv/server.log | egrep -iq "No license for product"
         then
-            echo "No license for product" > ${temp_dir}/warnings/dcv_not_found_valid_license
+            echo -e "${RED}No license for product${NC}" > ${temp_dir}/warnings/dcv_not_found_valid_license
         fi
     fi
 
+	echo "Checking /etc/dcv/dcv.conf file..." | tee -a $dcv_report_path
     if [ -f /etc/dcv/dcv.conf ]
     then
         if ! head -n 5 /var/log/dcv/server.log | grep -iq "Starting DCV server version 2024"
         then
             if ! cat /etc/dcv/dcv.conf | egrep -iq "^no-tls-strict.*=.*true"
             then
+				echo -e "${YELLOW}no-tls-script is false!${NC}" | tee -a $dcv_report_path
                 cat <<EOF >> ${temp_dir}/warnings/dcv_server_no-tls-strict_is_false
 - no-tls-strict is not true"
 
@@ -574,6 +657,7 @@ EOF
 
             if ! cat /etc/dcv/dcv.conf | egrep -iq "^enable-quic-frontend.*=.*true"
             then
+				echo -e "${YELLOW}QUIC protocol is not enabled!${NC}" | tee -a $dcv_report_path
                 cat << EOF >> ${temp_dir}/warnings/dcv_server_quic_not_enabled
 - quic protocol is not enabled
 - please add:
@@ -592,8 +676,19 @@ runDcvgldiag()
 
     if command -v dcvgldiag > /dev/null 2>&1
     then
+		echo "" >> $dcv_report_path
+		echo "Executing dcvgldiag test..." | tee -a $dcv_report_path
+
         sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
-            
+		cat ${target_dir}/dcvgldiag.log | tee -a $dcv_report_path > /dev/null
+		sed -i 's/Test Result: ERROR/[0;31mTest Result: ERROR[0m/g' $dcv_report_path
+		sed -i 's/Test Result: SUCCESS/[0;32mTest Result: SUCCESS[0m/g' $dcv_report_path
+
+		if cat $dcv_report_path | egrep -iq "test result.*error"
+		then
+			echo -e "${RED}Errors found in DCVGLDIAG test.${NC}"
+		fi
+
         if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
         then
             dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
@@ -611,14 +706,16 @@ runDcvgldiag()
 
 getNvidiaInfo()
 {
+	echo "Getting nvidia-smi info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/nvidia_info/"
     if command -v nvidia-smi > /dev/null 2>&1
     then
         timeout_seconds=20
         echo "Executing nvidia-smi special query. The test will take up to >>> $timeout_seconds <<< seconds."
         timeout $timeout_seconds nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query > /dev/null 2>&1
-        echo "Executing nvidia-smi generic query. The test will take up to >>> $timeout_seconds <<< seconds."
-        timeout $timeout_seconds nvidia-smi &> ${target_dir}/nvidia-smi_command
+
+        echo "Executing nvidia-smi generic query. The test will take up to >>> $timeout_seconds <<< seconds." | tee -a $dcv_report_path
+        timeout $timeout_seconds nvidia-smi 2>&1 | tee -a ${target_dir}/nvidia-smi_command $dcv_report_path
     fi
 }
 
@@ -632,7 +729,7 @@ getSystemdData()
 
 getOsData()
 {
-    echo "Collecting all Operating System relevant data..."
+    echo "Collecting all Operating System relevant data..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/os_info/"
     sudo uname -a > $target_dir/uname_-a
 
@@ -648,7 +745,7 @@ getOsData()
         sudo getenforce > $target_dir/getenforce_result 2>&1
         if cat $target_dir/getenforce_result | egrep -iq "enforcing"
         then
-            echo "selinux is being enforced" > ${temp_dir}/warnings/selinux_is_enforced
+            echo -e "${YELLOW}SELINUX is being enforced!${NC}" | tee -a ${temp_dir}/warnings/selinux_is_enforced $dcv_report_path > /dev/null
         fi
     fi
 
@@ -721,12 +818,14 @@ getOsData()
     then
         if cat $target_dir/dmesg | egrep -i "oom" > /dev/null 2>&1
         then
-            cat $target_dir/dmesg | egrep -i "(oom|killed|killer)" > ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg
+			echo -e "${YELLOW}Possible OOM Killer events found... please check your /var/log/dmesg files${NC}" | tee -a $dcv_report_path
+            cat $target_dir/dmesg | egrep -i "(oom|killed|killer)" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg > /dev/null
         fi
 
         if cat $target_dir/dmesg | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
         then
-            cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+			echo -e "${YELLOW}Segmentation fault events found... please check your /var/log/dmesg files${NC}" | tee -a $dcv_report_path
+            cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found > /dev/null
         fi
     fi
 
@@ -734,24 +833,37 @@ getOsData()
     then
         if cat $target_dir/messages | egrep -iq "oom" > /dev/null 2>&1
         then
-            cat $target_dir/messages | egrep -i "(oom|killed|killer)" > ${temp_dir}/warnings/possible_oom_killer_log_found_messages
+			echo -e "${YELLOW}Possible OOM Killer events found... please check your /var/log/messages files.${NC}" | tee -a $dcv_report_path
+            cat $target_dir/messages | egrep -i "(oom|killed|killer)" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_messages > /dev/null
         fi
-
-        echo "Checking for SELinux logs... if you have big log files, please wait for a moment."
-        grep -i "selinux is preventing" $target_dir/messages* | grep -i "dcv" | while read -r line 
-        do
-            echo "$line" > ${temp_dir}/warnings/selinux_is_preventing_dcv
-        done
 
         if cat $target_dir/messages | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
         then
-            cat $target_dir/messages | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+			echo -e "${YELLOW}Segmentation fault events found... please check your /var/log/messages files.${NC}" | tee -a $dcv_report_path
+            cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found > /dev/null
         fi
 
+        echo "Checking for SELinux logs... if you have big log files, please wait for a moment..." | tee -a $dcv_report_path
+		
+        grep -i "selinux is preventing" $target_dir/messages* | grep -i "dcv" | while read -r line 
+        do
+            echo "$line" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
+        done
+		
+		if [ -f ${temp_dir}/warnings/selinux_is_preventing_dcv ] 
+		then
+			echo -e "${RED}It seems that SELINUX is preventing DCV service to do something. Please check you /var/log/messages files.${NC}" | tee -a $dcv_report_path
+		fi
+
+        if cat $target_dir/messages | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
+        then
+			echo -e "${YELLOW}Segmentation fault events found...${NC}" | tee -a $dcv_report_path
+            cat $target_dir/messages | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found $dcv_report_path
+        fi
     fi
 
     target_dir="${temp_dir}/journal_log"
-    echo "Collecting journalctl data... if you have a long history stored, please wait for a moment."
+    echo "Collecting journalctl data... if you have a long history stored, please wait for a moment." | tee -a $dcv_report_path
 
     echo "Reading journalctl log..."
     sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log 2>&1
@@ -765,9 +877,9 @@ getOsData()
     echo "Looking for segmentation fault events..."
     if journalctl --no-page | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
     then
-        journalctl --no-page | egrep -i "(segfault|segmentation fault)" >> ${temp_dir}/warnings/segmentation_fault_found
+		echo -e "${YELLOW}Segmentation fault events found...${NC}" | tee -a $dcv_report_path
+        journalctl --no-page | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found $dcv_report_path
     fi
-
 }
 
 getSmartInfo()
@@ -776,7 +888,7 @@ getSmartInfo()
     then
         return 1
     else
-        echo "Checking S.M.A.R.T...."
+        echo "Checking S.M.A.R.T...." | tee -a $dcv_report_path
     fi
 
     target_dir="${temp_dir}/smart_info"
@@ -786,12 +898,12 @@ getSmartInfo()
     
     if [ -z "$local_storage_devices" ]
     then
-        echo "lsblk failed or returned no disks, trying alternative method" >> "$smart_disk_report"
+        echo "lsblk failed or returned no disks, trying alternative method..." | tee -a $smart_disk_report $dcv_report_path
         local_storage_devices=$(find /dev -regex "/dev/[hsv]d[a-z]" -o -regex "/dev/nvme[0-9]n[0-9]" 2>/dev/null)
     
         if [ -z "$local_storage_devices" ]
         then
-            echo "Alternative method failed, trying /proc/partitions" >> "$smart_disk_report"
+            echo "Alternative method failed, trying /proc/partitions" | tee -a $smart_disk_report $dcv_report_path
             local_storage_devices=$(awk '{print $4}' /proc/partitions 2>/dev/null | grep -E "^[hsv]d[a-z]$|^nvme[0-9]n[0-9]$" | sed 's/^/\/dev\//')
         fi
     fi
@@ -800,43 +912,37 @@ getSmartInfo()
     do
         if [ ! -b "$local_storage_device" ]
         then
-            echo "$local_storage_device is not a valid block device, skipping" >> "$smart_disk_report"
-            echo "" >> "$smart_disk_report"
+            echo "$local_storage_device is not a valid block device, skipping" | tee -a $smart_disk_report $dcv_report_path
+            echo "" | tee -a $smart_disk_report $dcv_report_path
             continue
         fi
 
         # Check if disk supports SMART with a timeout to prevent hangs on problematic devices
         if ! timeout 10 smartctl -i "$local_storage_device" 2>/dev/null | grep -q "SMART support is: Enabled"
         then
-            echo "SMART not available or not enabled on $local_storage_device" >> "$smart_disk_report"
-            echo "" >> "$smart_disk_report"
+            echo "S.M.A.R.T. not available or not enabled on $local_storage_device" | tee -a $smart_disk_report $dcv_report_path
             continue
         fi
 
         # Get basic information with timeout
-        echo "--- Basic Information ---" >> "$smart_disk_report"
-        timeout 5 smartctl -i "$local_storage_device" >> "$smart_disk_report" 2>&1
-        echo "" >> $smart_disk_report
+        echo "--- Basic Information ---" | tee -a $smart_disk_report $dcv_report_path
+        timeout 5 smartctl -i "$local_storage_device" 2>&1 | tee -a $smart_disk_report $dcv_report_path
     
         # Get health status with timeout
         echo "--- Health Status ---" >> "$smart_disk_report"
-        timeout 5 smartctl -H "$local_storage_device" >> "$smart_disk_report" 2>&1
-        echo "" >> $smart_disk_report
+        timeout 5 smartctl -H "$local_storage_device" 2>&1 | tee -a $smart_disk_report $dcv_report_path
     
         # Get SMART attributes with timeout
         echo "--- SMART Attributes ---" >> "$smart_disk_report"
-        timeout 5 smartctl -A "$local_storage_device" >> "$smart_disk_report" 2>&1
-        echo "" >> " $smart_disk_report"
+        timeout 5 smartctl -A "$local_storage_device" 2>&1 | tee -a $smart_disk_report $dcv_report_path
     
         # Get error logs with timeout
         echo "--- Error Log ---" >> "$smart_disk_report"
-        timeout 5 smartctl -l error "$local_storage_device" >> "$smart_disk_report" 2>&1
-        echo "" >> $smart_disk_report
+        timeout 5 smartctl -l error "$local_storage_device" 2>&1 | tee -a $smart_disk_report $dcv_report_path
     
         # Get self-test logs with timeout
         echo "--- Self-Test Log ---" >> "$smart_disk_report"
-        timeout 5 smartctl -l selftest "$local_storage_device" >> "$smart_disk_report" 2>&1
-        echo "" >> $smart_disk_report
+        timeout 5 smartctl -l selftest "$local_storage_device" 2>&1 | tee -a $smart_disk_report $dcv_report_path
     
         # Check for warnings
         check_warnings "$local_storage_device"
@@ -845,7 +951,7 @@ getSmartInfo()
 
 getSmartWarnings()
 {
-    echo "Checking S.M.A.R.T. warnings..."
+    echo "Checking S.M.A.R.T. warnings..." | tee -a $dcv_report_path
     local disk="$1"
     local disk_name=$(basename "$disk")
     
@@ -853,7 +959,7 @@ getSmartWarnings()
     health=$(smartctl -H "$disk" 2>/dev/null)
     if echo "$health" | grep -q "FAILED"
     then
-        echo "WARNING: $disk_name - SMART overall health test FAILED!" >> "$smart_disk_warnings"
+        echo "WARNING: $disk_name - SMART overall health test FAILED!" | tee -a $smart_disk_warnings $dcv_report_path
     fi
     
     # Check for reallocated sectors
@@ -863,7 +969,7 @@ getSmartWarnings()
         value=$(echo "$realloc" | awk '{print $10}')
         if [[ "$value" -gt 0 ]]
         then
-            echo "WARNING: $disk_name - Reallocated sectors found: $value" >> "$smart_disk_warnings"
+            echo "WARNING: $disk_name - Reallocated sectors found: $value" | tee -a $smart_disk_warnings $dcv_report_path
         fi
     fi
     
@@ -874,7 +980,7 @@ getSmartWarnings()
         value=$(echo "$pending" | awk '{print $10}')
         if [[ "$value" -gt 0 ]]
         then
-            echo "WARNING: $disk_name - Pending sectors found: $value" >> "$smart_disk_warnings"
+            echo "WARNING: $disk_name - Pending sectors found: $value" | tee -a $smart_disk_warnings $dcv_report_path
         fi
     fi
     
@@ -885,7 +991,7 @@ getSmartWarnings()
         value=$(echo "$uncorrect" | awk '{print $10}')
         if [[ "$value" -gt 0 ]]
         then
-            echo "WARNING: $disk_name - Offline uncorrectable sectors found: $value" >> "$smart_disk_warnings"
+            echo "WARNING: $disk_name - Offline uncorrectable sectors found: $value" | tee -a $smart_disk_warnings $dcv_report_path
         fi
     fi
     
@@ -896,7 +1002,7 @@ getSmartWarnings()
         temp_value=$(echo "$temp" | head -1 | awk '{print $10}')
         if [[ "$temp_value" -gt 55 ]]
         then
-            echo "WARNING: $disk_name - High temperature detected: ${temp_value}°C" >> "$smart_disk_warnings"
+            echo "WARNING: $disk_name - High temperature detected: ${temp_value}°C" | tee -a $smart_disk_warnings $dcv_report_path
         fi
     fi
     
@@ -904,7 +1010,7 @@ getSmartWarnings()
     error_count=$(smartctl -l error "$disk" 2>/dev/null | grep -c "Error")
     if [[ "$error_count" -gt 0 ]]
     then
-        echo "WARNING: $disk_name - SMART Error Log has $error_count entries" >> "$smart_disk_warnings"
+        echo "WARNING: $disk_name - SMART Error Log has $error_count entries" | tee -a $smart_disk_warnings $dcv_report_path
     fi
     
     # Check power-on hours (just information, not a warning)
@@ -915,19 +1021,19 @@ getSmartWarnings()
         if [[ "$hours_value" -gt 43800 ]]
         then
             # More than 5 years (24*365*5)
-            echo "INFO: $disk_name - Drive has been running for more than 5 years ($hours_value hours)" >> "$smart_disk_warnings"
+            echo "INFO: $disk_name - Drive has been running for more than 5 years ($hours_value hours)" | tee -a $smart_disk_warnings
         fi
     fi
 }
 
 getXorgData()
 {
-    echo "Collecting all Xorg relevant data..."
+    echo "Collecting all Xorg relevant data..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/xorg_log/"
     sudo cp -r /var/log/Xorg* $target_dir > /dev/null 2>&1
     
     target_dir="${temp_dir}/xorg_conf/"
-    echo "DISPLAY var content: >>> $DISPLAY <<<" > ${target_dir}/display_content_var 2>&1
+    echo "DISPLAY var content: >>> $DISPLAY <<<" | tee -a ${target_dir}/display_content_var $dcv_report_path
     if [[ "${DISPLAY}x" == "x" ]]
     then
         echo "DISPLAY is empty" > ${temp_dir}/warnings/display_var_is_empty 2>&1
@@ -944,17 +1050,17 @@ getXorgData()
     then
         mkdir -p ${target_dir}/usr_share_X11
         sudo cp -r /usr/share/X11 ${target_dir}/usr_share_x11 > /dev/null 2>&1
-        echo "/usr/share/X11 was found, but usually is expected /etc/X11. Check the last Xorg.log to identify which one is being used" >> ${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11 2>&1
+        echo -e "${YELLOW}/usr/share/X11 was found, but usually is expected /etc/X11. Check the last Xorg.log to identify which one is being used.${NC}" | tee -a ${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11 $dcv_report_path
     fi
 
     if ls /etc/X11/xorg.conf.d/*nvidia* &>/dev/null
     then
-        echo "A nvidia config file was found in >>> /etc/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." >> ${temp_dir}/warnings/nvidia_xorgconf_possible_override 2>&1
+        echo -e "${YELLOW}A nvidia config file was found in >>> /etc/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file.${NC}" | tee -a ${temp_dir}/warnings/nvidia_xorgconf_possible_override $dcv_report_path
     fi
 
     if ls /usr/share/X11/xorg.conf.d/*nvidia* &>/dev/null
     then
-        echo "A nvidia config file was found in >>> /usr/share/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." >> ${temp_dir}/warnings/nvidia_xorgconf_possible_override 2>&1
+        echo -e "${YELLOW}A nvidia config file was found in >>> /usr/share/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file.${NC}" | tee -a ${temp_dir}/warnings/nvidia_xorgconf_possible_override $dcv_report_path
     fi
 
     find /etc/X11 -type f -exec grep -l "OutputClass" {} + | xargs -I {} readlink -f {} >> ${temp_dir}/warnings/found_nvidia_output_class_files_possible_xorgconf_override 2> /dev/null
@@ -990,29 +1096,30 @@ getXorgData()
     then
         if pgrep X > /dev/null
         then
-            echo "X is currently running. Cannot execute X -configure." > ${temp_dir}/warnings/X_--configure_failed 2>&1
+            echo "X is currently running. Cannot execute X -configure." | tee -a ${temp_dir}/warnings/X_--configure_failed $dcv_report_path
         else
             timeout_seconds=10
-            echo "Executing X -configure query. The test will take up to >>> $timeout_seconds <<< seconds"
-            sudo timeout $timeout_seconds X -configure > "${target_dir}/xorg.conf.configure.stdout" 2> "${target_dir}/xorg.conf.configure.stderr"
+            echo "Executing X -configure query. The test will take up to >>> $timeout_seconds <<< seconds" | tee -a $dcv_report_path
+			sudo timeout $timeout_seconds X -configure 2> >(tee -a "${target_dir}/xorg.conf.configure.stderr" $dcv_report_path > /dev/null) | tee -a "${target_dir}/xorg.conf.configure.stdout $dcv_report_path" > /dev/null
         fi
     else
-        echo "X not found, X -configure can not be executed" > ${temp_dir}/warnings/X_was_not_found 2>&1
+        echo -e "${RED}X not found, X -configure can not be executed.${NC}" | tee -a ${temp_dir}/warnings/X_was_not_found $dcv_report_path
     fi
 
     detect_service=""
     detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz" | egrep -iv "${NISPGMBHHASH}")
     if [[ "${detect_service}x" != "x" ]]
     then
-        
-        echo "$detect_service" > ${temp_dir}/warnings/wayland_is_running 2>&1
+        echo -e "${RED}Wayland >>> IS <<< RUNNING!${NC}" | tee -a ${temp_dir}/warnings/wayland_is_running $dcv_report_path
+	else
+		echo -e "${GREEN}Wayland >>> IS NOT <<<  RUNNING!${NC}" | tee -a $dcv_report_path
     fi
 
     XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
     x_display=$(sudo ps aux | egrep '([X]|[X]org|[X]wayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
     then
-        echo "not possible to execute xrandr: display not found" > ${target_dir}/xrandr_can_not_be_executed 2>&1
+        echo -e "${YELLOW}Not possible to execute xrandr: display not found.${NC}" | tee -a ${target_dir}/xrandr_can_not_be_executed $dcv_report_path
     else
         if command -v xrandr > /dev/null 2>&1
         then
@@ -1021,11 +1128,12 @@ getXorgData()
 
         if command -v glxinfo > /dev/null 2>&1
         then
+			echo "Checking GLX INFO..." | tee -a $dcv_report_path
             if [ -n "$XAUTH" ]
             then
-                sudo -E DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo 2>"${target_dir}/opengl_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
+				sudo -E DISPLAY=${x_display} XAUTHORITY="$XAUTH" glxinfo 2> >(tee "${target_dir}/opengl_errors" $dcv_report_path) | grep -i "opengl.*version" | tee "${target_dir}/opengl_version" $dcv_report_path
             else
-                sudo -E DISPLAY=${x_display} glxinfo 2>"${target_dir}/glxinfo_errors" | grep -i "opengl.*version" > "${target_dir}/opengl_version"
+				sudo -E DISPLAY=${x_display} glxinfo 2> >(tee "${target_dir}/opengl_errors" $dcv_report_path) | grep -i "opengl.*version" | tee "${target_dir}/opengl_version" $dcv_report_path
             fi
         fi
     fi
