@@ -30,6 +30,8 @@ collect_log_only="false"
 option_selected="1"
 dcv_report_dir_name="dcv_report"
 dcv_report_file_name="dcv_report.txt"
+dcv_report_html_file_name="dcv_report.html"
+dcv_report_html_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_html_file_name}"
 dcv_report_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_file_name}"
 dcv_report_separator="------------------------------------------------------------------"
 dns_test_domain="google.com"
@@ -63,6 +65,7 @@ main()
     welcomeMessage
     setupUsefulTools
     createTempDirs
+	headHtmlReport
     checkPackagesVersions
     getSystemdData
     getOsData
@@ -99,6 +102,7 @@ main()
 	checkDcvManagementLinux
     #getDcvDataAfterReboot
     runDcvgldiag
+	tailHtmlReport
     compressLogCollection
     encryptLogCollection
     uploadLogCollection

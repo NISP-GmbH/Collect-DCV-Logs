@@ -14,6 +14,49 @@
 # deriving from the use or misuse of this information.
 ################################################################################
 
+headHtmlReport()
+{
+	cat << EOF >> $dcv_report_html_path
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NISP Report</title>
+    <style>
+        body {
+            background-color: black;
+            color: white; /* Default text color for better visibility on black */
+        }
+        h1 {
+            color: white;
+        }
+        .critical {
+            color: red;
+        }
+        .info {
+            color: green;
+        }
+        .warning {
+            color: yellow;
+        }
+		.suggestion {
+            color: cyan;
+        }
+    </style>
+</head>
+<body>
+<h1>NISP DCV Server report</h1>
+<p> If you need help: https://www.ni-sp.com/support/ </p>
+EOF
+}
+
+tailHtmlReport()
+{
+	cat << EOF >> $dcv_report_html_path
+</body>
+</html>
+EOF
+}
+
 command_exists()
 {
     command -v "$1" &> /dev/null
@@ -46,19 +89,30 @@ reportMessageWrite()
 
     case $message_type in
         critical)
-			echo -e "${RED}${dcv_report_separator}${NC}" | tee -a $log_file  > /dev/null
+			echo -e "${dcv_report_separator}" | tee -a $log_file  > /dev/null
             echo -e "${RED}CRITICAL: ${message_text}${NC}" | tee -a $log_file
+			
+			echo "<p class="critical">${dcv_report_separator}</p>" | tee -a $dcv_report_html_path  > /dev/null
+			echo "<h1> <span class="critical">CRITICAL: ${message_text}</span></h1>" | tee -a $dcv_report_html_path  > /dev/null
         ;;
         warning)
-			echo -e "${YELLOW}${dcv_report_separator}${NC}" | tee -a $log_file  > /dev/null
+			echo -e "${dcv_report_separator}" | tee -a $log_file  > /dev/null
             echo -e "${YELLOW}WARNING: ${message_text}${NC}" | tee -a $log_file
+
+			echo "<p class="warning">${dcv_report_separator}</p>" | tee -a $dcv_report_html_path  > /dev/null
+			echo "<h1> <span class="warning">WARNING: ${message_text}</span></h1>" | tee -a $dcv_report_html_path  > /dev/null
         ;;
         info)
-			echo -e "${GREEN}${dcv_report_separator}${NC}" | tee -a $log_file  > /dev/null
+			echo -e "${dcv_report_separator}" | tee -a $log_file  > /dev/null
             echo -e "${GREEN}INFO: ${message_text}${NC}" | tee -a $log_file
+
+			echo "<p class="info">${dcv_report_separator}</p>" | tee -a $dcv_report_html_path  > /dev/null
+			echo "<h1> <span class="info">INFO: ${message_text}</span></h1>" | tee -a $dcv_report_html_path  > /dev/null
         ;;
         suggestion)
             echo -e "${BLUE}SUGGESTION: ${message_text}${NC}" | tee -a $log_file > /dev/null
+
+			echo "<p class="suggestion">SUGGESTION: ${message_text}</p>" | tee -a $dcv_report_html_path  > /dev/null
         ;;
     esac
 }
@@ -105,7 +159,7 @@ welcomeMessage()
 
 	case $option_selected in
 		1)
-			echo -e "${GREEN}The report will be saved in the same directory of the script with the name >>> $dcv_report_file_name <<<.${NC}"
+			echo -e "${GREEN}The report will be saved in the same directory of the script with the name >>> $dcv_report_file_name <<< and >>> $dcv_report_html_file_name <<<.${NC}"
 			report_only="true"
 		;;
 		2)
@@ -116,9 +170,6 @@ welcomeMessage()
 		    read identifier_string
 		;;
 	esac
-
-    echo "To proceed, please press enter or ctrl+c to quit."
-	read p
 }
 
 checkLinuxDistro()
@@ -282,11 +333,13 @@ removeTempFiles()
 			then
 				rm -f $dcv_report_file_name
 				cp -a ${dcv_report_path} .
+				cp -a ${dcv_report_html_path} .
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
-				echo -e "${GREEN}The report was saved in >>> $dcv_report_file_name <<<.${NC}"
+				echo -e "${GREEN}The TXT report was saved in >>> $dcv_report_file_name <<<.${NC}"
 				echo -e "${GREEN}To read with ${RED}co${YELLOW}lo${BLUE}rs ${GREEN}you can use:${NC}"
 				echo "less -R $dcv_report_file_name"
+				echo -e "${GREEN}The HTML report was saved in >>> $dcv_report_html_file_name <<<.${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
 			fi
@@ -1655,6 +1708,8 @@ collect_log_only="false"
 option_selected="1"
 dcv_report_dir_name="dcv_report"
 dcv_report_file_name="dcv_report.txt"
+dcv_report_html_file_name="dcv_report.html"
+dcv_report_html_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_html_file_name}"
 dcv_report_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_file_name}"
 dcv_report_separator="------------------------------------------------------------------"
 dns_test_domain="google.com"
@@ -1688,6 +1743,7 @@ main()
     welcomeMessage
     setupUsefulTools
     createTempDirs
+	headHtmlReport
     checkPackagesVersions
     getSystemdData
     getOsData
@@ -1724,6 +1780,7 @@ main()
 	checkDcvManagementLinux
     #getDcvDataAfterReboot
     runDcvgldiag
+	tailHtmlReport
     compressLogCollection
     encryptLogCollection
     uploadLogCollection
