@@ -1,12 +1,56 @@
+command_exists()
+{
+    command -v "$1" &> /dev/null
+}
+
 byebyeMessage()
 {
     echo -e "${GREEN}Thank you! ${NC}"
 }
 
+reportMessage()
+{
+	local message_type=$1
+	local message_text=$2
+	local log_file="$3"
+	local message_suggestion=$4
+
+	reportMessageWrite "${message_text}" "${log_file}" "${message_type}"
+	if [[ "${message_suggestion}x" != "x" ]]
+	then
+		reportMessageWrite "${message_suggestion}" "${log_file}" "suggestion"
+	fi
+}
+
+reportMessageWrite()
+{
+	local message_text="$1"
+	local log_file="$dcv_report_path $2"
+    local message_type=$3
+
+    case $message_type in
+        critical)
+			echo -e "${RED}${dcv_report_separator}${NC}" | tee -a $log_file  > /dev/null
+            echo -e "${RED}CRITICAL: ${message_text}${NC}" | tee -a $log_file
+        ;;
+        warning)
+			echo -e "${YELLOW}${dcv_report_separator}${NC}" | tee -a $log_file  > /dev/null
+            echo -e "${YELLOW}WARNING: ${message_text}${NC}" | tee -a $log_file
+        ;;
+        info)
+			echo -e "${GREEN}${dcv_report_separator}${NC}" | tee -a $log_file  > /dev/null
+            echo -e "${GREEN}INFO: ${message_text}${NC}" | tee -a $log_file
+        ;;
+        suggestion)
+            echo -e "${BLUE}SUGGESTION: ${message_text}${NC}" | tee -a $log_file > /dev/null
+        ;;
+    esac
+}
+
 welcomeMessage()
 {
     echo "#################################################"
-    echo -e "${GREEN}Welcome to NISP DCV Collect Logs tool!${NC}"
+    echo -e "${GREEN}Welcome to NI SP DCV Installation Checker!${NC}"
     echo -e "Check all of our guides and tools: https://github.com/NISP-GmbH/Guides"
     echo "#################################################"
 	echo -e "${GREEN}Notes:${NC}"
@@ -222,9 +266,13 @@ removeTempFiles()
 			then
 				rm -f $dcv_report_file_name
 				cp -a ${dcv_report_path} .
+				echo -e "${GREEN}#########################################################################${NC}"
+				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}The report was saved in >>> $dcv_report_file_name <<<.${NC}"
-				echo -e "${GREEN}To read with colors you can use:${NC}"
+				echo -e "${GREEN}To read with ${RED}co${YELLOW}lo${BLUE}rs ${GREEN}you can use:${NC}"
 				echo "less -R $dcv_report_file_name"
+				echo -e "${GREEN}#########################################################################${NC}"
+				echo -e "${GREEN}#########################################################################${NC}"
 			fi
 		fi
 		rm -rf $temp_dir
@@ -252,7 +300,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf xfce_conf xfce_log systemd_info smart_info ${dcv_report_dir_name}
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -396,7 +444,7 @@ getKerberosData()
 
 getSssdData()
 {
-    echo "Collecting all SSSD relevant info..."
+    echo "Collecting all SSSD relevant info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/sssd_conf/"
 
     if [ -d /etc/sssd/ ]
@@ -429,12 +477,93 @@ getNsswitchData()
     fi
 }
 
-getXfceLog()
+getXfceData()
 {
     echo "Collecting all XFCE relevant info..."
     target_dir="${temp_dir}/xfce_log/"
 
     sudo journalctl --no-page | egrep -i "[x]fce" >> ${target_dir}/journalctl_xfce_log
+}
+
+checkDisplayManager()
+{
+	if $redhat_distro_based
+	then
+		display_manager_path="/etc/systemd/system/display-manager.service"
+		if [ -f $display_manager_path ]
+		then
+			display_manager_name=$(basename ${display_manager_path} .service)
+		fi
+	fi
+
+	if $ubuntu_distro
+	then
+		display_manager_path="/etc/X11/default-display-manager"
+		if [ -f $display_manager_path ]
+		then
+			display_manager_name=$(basename ${display_manager_pat}h .service)
+		fi
+	fi
+
+    if command -v systemctl >/dev/null 2>&1
+	then
+        if systemctl is-active --quiet "${display_manager_name}.service"
+		then
+			reportMessage \
+			"info" \
+			"${display_manager_name} >>> IS RUNNING <<<." \
+			""
+			display_manager_status="running"
+        else
+			reportMessage \
+			"critical" \
+			"${display_manager_name} >>> IS NOT RUNNING <<<." \
+			"${temp_dir}/warnings/display_manager_${display_manager_name}_is_NOT_running" \
+			"You need to check your journalctl to understand why your display-manager is down. You can find more about display managers here: https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
+			display_manager_status="not running"
+        fi
+    else
+        if pgrep -x "${display_manager_name}" >/dev/null
+		then
+			reportMessage \
+			"info" \
+			"Status: ${display_manager_name} >>> IS RUNNING <<<." \
+			"" \ 
+			""
+			display_manager_status="running"
+        else
+			reportMessage \
+			"critical" \
+			"Status: ${display_manager_name} >>> IS NOT RUNNING <<<." \
+			"You need to check your /var/log/messages or /var/log/dmesg to understand why your display-manager is down. You can find more about display managers here: https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
+			display_manager_status="not running"
+        fi
+    fi
+}
+
+lookForDmIssues()
+{
+	log_dir_to_look=$1
+	warning_dir=$2
+	
+	regular_expression="(fail|cannot|unable|crash|segfault|timeout|fatal|error|denied|segmentation|abort|too many)"
+	if egrep -Ri "$regular_expression" $log_dir_to_look > ${warning_dir}/${display_manager_name}_errors
+	then
+		reportMessage \
+		"warning" \
+		"Found some unusual error/fail/deny/timeout in SDDM logs." \
+		"${temp_dir}/warnings/gdm_errors" \
+		"Look our tutorial about how to correctly build SDDM environment in https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
+
+		if egrep -Ri "$regular_expression" $log_dir_to_look  | egrep -i dcv > ${warning_dir}/${display_manager_name}_dcv_errors
+		then
+			reportMessage \
+			"critical" \
+			"Found some DISPLAY MANAGER issue that are causing issues with DCV." \
+			"${warning_dir}/${display_manager_name}_dcv_errors" \
+			"Please check your >>> $display_manager_name <<< DISPLAY MANAGER logs to understand why DCV process is being affected"
+		fi
+	fi
 }
 
 getGdmData()
@@ -452,7 +581,9 @@ getGdmData()
         sudo cp -r /var/log/gdm3 $target_dir > /dev/null 2>&1
     fi
 
-    sudo journalctl -u gdm.service > "${target_dir}/systemctl_gdm_journal"
+    sudo journalctl -u gdm.service > "${target_dir}/journal_gdm"
+
+	lookForDmIssues	$target_dir ${temp_dir}/warnings/
 
     target_dir="${temp_dir}/gdm_conf/"
     if [ -f /etc/gdm/ ]
@@ -468,13 +599,32 @@ getGdmData()
     sudo systemctl is-active gdm.service > "${target_dir}/systemctl_active_status"
     sudo systemctl is-enabled gdm.service > "${target_dir}/systemctl_enabled_status"
     sudo systemctl status gdm.service > "${target_dir}/systemctl_current_status"
-    
-    if pgrep -x "gdm" > /dev/null
-    then
-        echo "GDM process is running" > "${target_dir}/gdm_process_status"
-    else
-        echo "GDM process is not running" | tee -a "${target_dir}/gdm_process_status" "${temp_dir}/warnings/gdm_is_not_running" $dcv_report_path
-    fi
+}
+
+getSddmData()
+{
+    echo "Collecting all SDDM relevant info..." | tee -a $dcv_report_path
+    target_dir="${temp_dir}/sddm_conf/"
+	sudo cp -r /etc/sddm* $target_dir
+	
+    target_dir="${temp_dir}/sddm_log/"
+	sudo cp -r /var/log/sddm* $target_dir
+	sudo journalctl -u sddm.service > ${target_dir}/journal_sddm
+
+	lookForDmIssues	$target_dir ${temp_dir}/warnings/
+}
+
+getLightdmData()
+{
+    echo "Collecting all LIGHTDM relevant info..." | tee -a $dcv_report_path
+    target_dir="${temp_dir}/lightdm_conf/"
+	sudo cp -r /etc/lightdm* $target_dir
+
+    target_dir="${temp_dir}/lightdm_log/"
+	sudo cp -r /var/log/lightdm* $target_dir
+	sudo journalctl -u lightdm.service > ${target_dir}/journal_sddm
+
+	lookForDmIssues	$target_dir ${temp_dir}/warnings/
 }
 
 getHwData()
@@ -533,6 +683,25 @@ getDcvDataAfterReboot()
     else
         echo "dcv reboot test not executed" > ${target_dir}/dcv_reboot_test_not_executed
     fi
+}
+
+getDcvMemoryConfig()
+{
+    echo "Collecting all DCV relevant data..." | tee -a $dcv_report_path
+    target_dir="${temp_dir}/dcv_memory_config/"
+
+	if command_exists dcv
+	then
+		sudo dcv get-config --all > ${target_dir}/dcv_config_info
+		sudo dcv list-sessions > ${target_dir}/dcv_list_sessions
+		sudo dcv list-sessions --json > ${target_dir}/dcv_list_sessions_json
+	else
+        reportMessage \
+        "critical" \
+        ">>> dcv <<< binary was not found tine the PATH >>> $PATH <<<." \
+        "${temp_dir}/warnings/dcv_binary_not_found" \
+        "Please check if DCV server was correctly installed and if is your PATH variable. The script can not execute dcv commands."
+	fi
 }
 
 getDcvData()
@@ -668,6 +837,28 @@ EOF
             fi
         fi
     fi
+
+	if egrep -Riq "Failed checkout of product.*with version" ${target_dir}/* > /dev/null 2>&1
+	then
+        reportMessage \
+        "critical" \
+        "You have a license issue. Your current license does not support your current DCV session." \
+        "${temp_dir}/warnings/dcv_license_version_failure" \
+        "Please contact the NISP support to check how this can be solved: https://www.ni-sp.com/support/"		
+		
+		egrep -Ri "Failed checkout of product.*with version" ${target_dir}/* >> ${temp_dir}/warnings/dcv_license_version_failure
+	fi
+
+	if egrep -Riq "There was a problem stopping the session" ${target_dir}/* > /dev/null 2>&1
+	then
+        reportMessage \
+        "critical" \
+        "Your DCV server can not close some sessions." \
+        "${temp_dir}/warnings/dcv_server_can_not_close_session" \
+        "Please contact the NISP support to check how this can be solved: https://www.ni-sp.com/support/"		
+
+		egrep -Ri "There was a problem stopping the session" ${target_dir}/* > ${temp_dir}/warnings/dcv_server_can_not_close_session
+	fi
 }
 
 runDcvgldiag()
@@ -680,13 +871,18 @@ runDcvgldiag()
 		echo "Executing dcvgldiag test..." | tee -a $dcv_report_path
 
         sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
-		cat ${target_dir}/dcvgldiag.log | tee -a $dcv_report_path > /dev/null
-		sed -i 's/Test Result: ERROR/[0;31mTest Result: ERROR[0m/g' $dcv_report_path
-		sed -i 's/Test Result: SUCCESS/[0;32mTest Result: SUCCESS[0m/g' $dcv_report_path
 
-		if cat $dcv_report_path | egrep -iq "test result.*error"
+		if cat ${target_dir}/dcvgldiag.log | egrep -iq "test result.*error"
 		then
-			echo -e "${RED}Errors found in DCVGLDIAG test.${NC}"
+			cat ${target_dir}/dcvgldiag.log | tee -a $dcv_report_path > /dev/null
+			sed -i 's/Test Result: ERROR/[0;31mTest Result: ERROR[0m/g' $dcv_report_path
+			sed -i 's/Test Result: SUCCESS/[0;32mTest Result: SUCCESS[0m/g' $dcv_report_path
+
+			reportMessage \
+			"warning" \
+			"Errors found in DCVGLDIAG test." \
+			"" \
+			"Review the text below to fix the possible environment issues"
 		fi
 
         if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
@@ -769,17 +965,19 @@ getOsData()
         sudo cp /etc/centos-release $target_dir > /dev/null 2>&1
     fi
 
-    if [ -f /usr/lib/apt ]
+    if command_exists dpkg
     then
         sudo dpkg -a > ${target_dir}/deb_packages_list 2>&1
     fi
 
-    if [ -f /usr/bin/rpm ]
+    if command_exists rpm
     then
         sudo rpm -qa > ${target_dir}/rpm_packages_list 2>&1
     fi
-    
-    uptime > ${target_dir}/uptime 2>&1
+    if command_exists uptime
+	then
+    	uptime > ${target_dir}/uptime 2>&1
+	fi
 
     ps aux --forest > ${target_dir}/ps_aux_--forest 2>&1
     pstree -p > ${target_dir}/pstree 2>&1
@@ -837,12 +1035,6 @@ getOsData()
             cat $target_dir/messages | egrep -i "(oom|killed|killer)" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_messages > /dev/null
         fi
 
-        if cat $target_dir/messages | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
-        then
-			echo -e "${YELLOW}Segmentation fault events found... please check your /var/log/messages files.${NC}" | tee -a $dcv_report_path
-            cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found > /dev/null
-        fi
-
         echo "Checking for SELinux logs... if you have big log files, please wait for a moment..." | tee -a $dcv_report_path
 		
         grep -i "selinux is preventing" $target_dir/messages* | grep -i "dcv" | while read -r line 
@@ -852,14 +1044,12 @@ getOsData()
 		
 		if [ -f ${temp_dir}/warnings/selinux_is_preventing_dcv ] 
 		then
-			echo -e "${RED}It seems that SELINUX is preventing DCV service to do something. Please check you /var/log/messages files.${NC}" | tee -a $dcv_report_path
+			reportMessage \
+			"critical" \
+			"Found SELINUX preventing DCV service to work." \
+			"${temp_dir}/warnings/selinux_is_preventing_dcv" \
+			"Please review your /var/log/messages to identify which DCV service is being blocked by SELINUX."
 		fi
-
-        if cat $target_dir/messages | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
-        then
-			echo -e "${YELLOW}Segmentation fault events found...${NC}" | tee -a $dcv_report_path
-            cat $target_dir/messages | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found $dcv_report_path
-        fi
     fi
 
     target_dir="${temp_dir}/journal_log"
@@ -874,12 +1064,72 @@ getOsData()
     echo "Reading possible apparmor log..."
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
 
+	echo "Looking for OOM killer fault events"
+
     echo "Looking for segmentation fault events..."
-    if journalctl --no-page | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
+    if egrep -Riq "(segfault|segmentation fault)" ${target_dir}/* > /dev/null 2>&1
     then
-		echo -e "${YELLOW}Segmentation fault events found...${NC}" | tee -a $dcv_report_path
-        journalctl --no-page | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found $dcv_report_path
+		reportMessage \
+		"warning" \
+		"Segmentation fault events found in journalctl..." \
+		"${temp_dir}/warnings/segmentation_fault_found" \
+		"${dcv_report_text_about_segfault}"
+
+		if egrep -Ri "(segfault|segmentation fault)" ${target_dir}/* | egrep -iq "dcv" > /dev/null 2>&1
+		then
+        	egrep -Ri "(segfault|segmentation fault)" ${target_dir}/* | egrep -i "dcv" tee -a ${temp_dir}/warnings/segmentation_fault_found $dcv_report_path > /dev/null
+			reportMessage \
+			"critical" \
+			"DCV process is having segmentation fault." \
+			"${temp_dir}/warnings/segmentation_fault_found_dcv" \
+			"${dcv_report_text_about_segfault}"
+		fi
+
     fi
+
+	if egrep -Riq "Could not get tablet information for 'Xdcv eraser'" ${target_dir}/*
+	then
+		egrep -Ri "Could not get tablet information for 'Xdcv eraser'" ${target_dir}/* >> ${temp_dir}/warnings/Xdcv_errors
+		reportMessage \
+        "critical" \
+        "Identified some issue with Xdcv and gnome-shell." \
+        "${temp_dir}/warnings/Xdcv_errors" \
+        "Found and issue between gnome-shell and Xdcv. Please check if you are using X11, not Wayland, and if you have a complete GNOME environment installed."
+	fi
+
+	if egrep -Riq "gnome-terminal-server.*Fatal IO error" ${target_dir}/*
+	then
+		reportMessage \
+        "critical" \
+        "Identified Fatal IO error with gnome-terminal-server." \
+        "${temp_dir}/warnings/gnome_fatal_io_error" \
+        "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors."
+		
+		egrep -Ri "gnome-terminal-server.*Fatal IO error" >> ${temp_dir}/warnings/gnome_fatal_io_error
+	fi
+
+	if egrep -Riq "BAR.*failed to assign" ${target_dir}/*
+	then
+        reportMessage \
+        "warning" \
+        "Found BAR failures" \
+        "${temp_dir}/warnings/bar_failures_found" \
+        "BAR stands for Base Address Register, which is a mechanism used by PCI devices to request memory or I/O space from the system. These errors typically occur when: (A) The system doesn't have enough I/O address space available to satisfy all PCI devices. (B) There might be conflicts between devices requesting the same resources. (C) The BIOS/UEFI didn't properly allocate or reserve the necessary resources. If you are using a virtualized environment with a lot of virtual devices, for example, is possible that your VM has not enough resources to support all devices, what can cause DCV issues, specially when GPU is being used. While these errors look concerning, they don't always cause functional problems. Many systems can still operate normally with some BAR allocation failures, as the kernel typically tries to work around these issues. "
+
+		egrep -Ri "BAR.*failed to assign" >> ${temp_dir}/warnings/bar_failures_found
+	fi
+
+
+	if egrep -Riq "NVIDIA.*Failed to bind sideband socket" ${target_dir}/*
+	then
+        reportMessage \
+        "warning" \
+        "NVIDIA: Failed to bind sideband socket" \
+        "${temp_dir}/warnings/nvidia_fail_to_bind" \
+        "The sideband socket is part of NVIDIA's driver communication system, used for exchanging information between different components of the graphics system. When this binding fails, it typically indicates: (A) A permission problem (the process doesn't have rights to access the socket). (B) The socket is already in use by another process. (C) The NVIDIA driver might be experiencing conflicts with other system components. You need to check if you have conflicting drivers."
+
+		egrep -Ri "NVIDIA.*Failed to bind sideband socket" >> ${temp_dir}/nvidia_fail_to_bind
+	fi
 }
 
 getSmartInfo()
@@ -959,7 +1209,11 @@ getSmartWarnings()
     health=$(smartctl -H "$disk" 2>/dev/null)
     if echo "$health" | grep -q "FAILED"
     then
-        echo "WARNING: $disk_name - SMART overall health test FAILED!" | tee -a $smart_disk_warnings $dcv_report_path
+		reportMessage \
+		"warning" \
+		"$disk_name - SMART overall health test FAILED!" \
+		"$smart_disk_warnings" \
+		"Enable the S.M.A.R.T. in your storage devices."
     fi
     
     # Check for reallocated sectors
@@ -969,7 +1223,11 @@ getSmartWarnings()
         value=$(echo "$realloc" | awk '{print $10}')
         if [[ "$value" -gt 0 ]]
         then
-            echo "WARNING: $disk_name - Reallocated sectors found: $value" | tee -a $smart_disk_warnings $dcv_report_path
+			reportMessage \
+			"critical" \
+			"$disk_name - Reallocated sectors found: $value" \
+			"$smart_disk_warnings" \
+			"This indicates that your drive has detected bad sectors and has remapped them to spare sectors. This is an early warning sign of potential drive failure. Please check your drive."
         fi
     fi
     
@@ -980,7 +1238,11 @@ getSmartWarnings()
         value=$(echo "$pending" | awk '{print $10}')
         if [[ "$value" -gt 0 ]]
         then
-            echo "WARNING: $disk_name - Pending sectors found: $value" | tee -a $smart_disk_warnings $dcv_report_path
+			reportMessage \
+			"critical" \
+			"$disk_name - Pending sectors found: $value" \
+			"$smart_disk_warnings" \
+			"Pending sectors are sectors that have been identified as problematic but haven't yet been remapped. You need to check if you need to replace your storage."
         fi
     fi
     
@@ -991,7 +1253,11 @@ getSmartWarnings()
         value=$(echo "$uncorrect" | awk '{print $10}')
         if [[ "$value" -gt 0 ]]
         then
-            echo "WARNING: $disk_name - Offline uncorrectable sectors found: $value" | tee -a $smart_disk_warnings $dcv_report_path
+			reportMessage \
+			"critical" \
+			"$disk_name - Offline uncorrectable sectors found: $value" \
+			"$smart_disk_warnings" \
+			"These are sectors that the drive has determined are damaged and cannot be read or repaired. You need to replace your storage, as everything can be corrupted."
         fi
     fi
     
@@ -1002,7 +1268,11 @@ getSmartWarnings()
         temp_value=$(echo "$temp" | head -1 | awk '{print $10}')
         if [[ "$temp_value" -gt 55 ]]
         then
-            echo "WARNING: $disk_name - High temperature detected: ${temp_value}°C" | tee -a $smart_disk_warnings $dcv_report_path
+			reportMessage \
+			"warning" \
+			"$disk_name - High temperature detected: ${temp_value}°C" \
+			"$smart_disk_warnings" \
+			"High temperatures can damage your storage and corrupt the filesystem. You need to cool down your storage."
         fi
     fi
     
@@ -1010,7 +1280,11 @@ getSmartWarnings()
     error_count=$(smartctl -l error "$disk" 2>/dev/null | grep -c "Error")
     if [[ "$error_count" -gt 0 ]]
     then
-        echo "WARNING: $disk_name - SMART Error Log has $error_count entries" | tee -a $smart_disk_warnings $dcv_report_path
+		reportMessage \
+		"critical" \
+		"$disk_name - SMART Error Log has $error_count entries" \
+		"$smart_disk_warnings" \
+		"You need to run >>> smartctl -l error <<< and check all entries. There is a chance that your storage hardware is about to fail."
     fi
     
     # Check power-on hours (just information, not a warning)
@@ -1021,7 +1295,11 @@ getSmartWarnings()
         if [[ "$hours_value" -gt 43800 ]]
         then
             # More than 5 years (24*365*5)
-            echo "INFO: $disk_name - Drive has been running for more than 5 years ($hours_value hours)" | tee -a $smart_disk_warnings
+			reportMessage \
+			"warning" \
+			"$disk_name - Drive has been running for more than 5 years ($hours_value hours)" \
+			"$smart_disk_warnings" \
+			"Please check your drive health as it is running for more than 5 years. Some devices types, like SSD, will start to have seriously degradation after so much time."
         fi
     fi
 }
@@ -1033,10 +1311,15 @@ getXorgData()
     sudo cp -r /var/log/Xorg* $target_dir > /dev/null 2>&1
     
     target_dir="${temp_dir}/xorg_conf/"
-    echo "DISPLAY var content: >>> $DISPLAY <<<" | tee -a ${target_dir}/display_content_var $dcv_report_path
+
     if [[ "${DISPLAY}x" == "x" ]]
     then
-        echo "DISPLAY is empty" > ${temp_dir}/warnings/display_var_is_empty 2>&1
+		reportMessage \
+		"warning" \
+		"DISPLAY var content: >>> $DISPLAY <<<" \
+		"${target_dir}/display_content_var ${temp_dir}/warnings/display_var_is_empty" \
+		"The DISPLAY var is empty. Is normal if you executed this script outside of GUI session."
+
         echo "The user executing is >>> $USER <<<" >> ${temp_dir}/warnings/display_var_is_empty 2>&1
     fi
 
@@ -1050,17 +1333,30 @@ getXorgData()
     then
         mkdir -p ${target_dir}/usr_share_X11
         sudo cp -r /usr/share/X11 ${target_dir}/usr_share_x11 > /dev/null 2>&1
-        echo -e "${YELLOW}/usr/share/X11 was found, but usually is expected /etc/X11. Check the last Xorg.log to identify which one is being used.${NC}" | tee -a ${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11 $dcv_report_path
+
+		reportMessage \
+		"warning" \
+		"/usr/share/X11 was found, but usually is expected /etc/X11. Check the last Xorg.log to identify which one is being used." \
+		"${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11" \
+		"You need to check xorg.conf.d of both directories (/etc/X11 and /usr/share/X11) and look for configuration files that can enter in conflict with yout environment. For example: radeon drivers being loaded with nvidia driver. We recommend to backup and remove all xorg.conf.d/* files and leave just the ones that you really need. Also, check your /var/log/Xorg.log* files to verify which directories are being loaded and which xorg.conf file is being used."
     fi
 
     if ls /etc/X11/xorg.conf.d/*nvidia* &>/dev/null
     then
-        echo -e "${YELLOW}A nvidia config file was found in >>> /etc/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file.${NC}" | tee -a ${temp_dir}/warnings/nvidia_xorgconf_possible_override $dcv_report_path
+		reportMessage \
+		"warning" \
+		"A nvidia config file was found in >>> /etc/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." \
+		"${temp_dir}/warnings/nvidia_xorgconf_possible_override" \
+		"Check if you really need the additional nvidia configuration files found in /etc/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file."
     fi
 
     if ls /usr/share/X11/xorg.conf.d/*nvidia* &>/dev/null
     then
-        echo -e "${YELLOW}A nvidia config file was found in >>> /usr/share/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file.${NC}" | tee -a ${temp_dir}/warnings/nvidia_xorgconf_possible_override $dcv_report_path
+		reportMessage \
+		"warning" \
+		"A nvidia config file was found in >>> /usr/share/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." \
+		"${temp_dir}/warnings/nvidia_xorgconf_possible_override" \
+		"Check if you really need the additional nvidia configuration files found in /usr/share/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file."
     fi
 
     find /etc/X11 -type f -exec grep -l "OutputClass" {} + | xargs -I {} readlink -f {} >> ${temp_dir}/warnings/found_nvidia_output_class_files_possible_xorgconf_override 2> /dev/null
@@ -1103,23 +1399,39 @@ getXorgData()
 			sudo timeout $timeout_seconds X -configure 2> >(tee -a "${target_dir}/xorg.conf.configure.stderr" $dcv_report_path > /dev/null) | tee -a "${target_dir}/xorg.conf.configure.stdout $dcv_report_path" > /dev/null
         fi
     else
-        echo -e "${RED}X not found, X -configure can not be executed.${NC}" | tee -a ${temp_dir}/warnings/X_was_not_found $dcv_report_path
+		reportMessage \
+		"critical" \
+		"X not found, X -configure can not be executed." \
+		"${temp_dir}/warnings/X_was_not_found" \
+		"X was not found. Maybe your PATH is wrong or you do not have a complete GUI installed. Please check our GUI guide: https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
     fi
 
     detect_service=""
     detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz" | egrep -iv "${NISPGMBHHASH}")
     if [[ "${detect_service}x" != "x" ]]
     then
-        echo -e "${RED}Wayland >>> IS <<< RUNNING!${NC}" | tee -a ${temp_dir}/warnings/wayland_is_running $dcv_report_path
+		reportMessage \
+		"critical" \
+		"Wayland >>> IS <<< RUNNING!" \
+		"${temp_dir}/warnings/wayland_is_running" \
+		"You need to run DCV Server with X11 backend. Wayland is not supported yet and will cause issues under DCV Service. The DCV Viewer supports Wayland since 2024.0-17979 version."
 	else
-		echo -e "${GREEN}Wayland >>> IS NOT <<<  RUNNING!${NC}" | tee -a $dcv_report_path
+		reportMessage \
+		"info" \
+		"Wayland >>> IS NOT <<< RUNNING!" \
+		"${temp_dir}/warnings/wayland_is_not_running" \
+		"Wayland is already supported for DCV Viewer, but not DCV Server. The support is under the roadmap and you can check any news here: https://docs.aws.amazon.com/dcv/latest/adminguide/doc-history-release-notes.html"
     fi
 
     XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
     x_display=$(sudo ps aux | egrep '([X]|[X]org|[X]wayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
     then
-        echo -e "${YELLOW}Not possible to execute xrandr: display not found.${NC}" | tee -a ${target_dir}/xrandr_can_not_be_executed $dcv_report_path
+		reportMessage \
+		"warning" \
+		"Not possible to execute xrandr: display not found." \
+		"${target_dir}/xrandr_can_not_be_executed" \
+		"The DISPLAY variable seems empty. This is normal if you are executing this script outside of GUI session. What you can do is try to export the DISPLAY variable, so the xrandr test will work."
     else
         if command -v xrandr > /dev/null 2>&1
         then
@@ -1137,4 +1449,160 @@ getXorgData()
             fi
         fi
     fi
+}
+
+checkDcvManagementLinux()
+{
+	echo "Checking if DCV Management Linux is present..." | tee -a $dcv_report_path
+	if sudo systemctl list-unit-files --type=service | grep -qi "dcv-management"
+	then
+		if sudo systemctl is-enabled dcv-management &> /dev/null
+		then
+			dcv_managament_text1="enabled"
+			if sudo systemctl is-active &> /dev/null
+			then
+				dcv_managament_text2="active"
+			else
+				dcv_managament_text2="not_active"
+			fi
+		else
+			dcv_managament_text1="disabled"
+		fi
+
+		reportMessage \
+      	"info" \
+       	"DCV Management Linux service is >>> $dcv_managament_text1 <<< and >>> $dcv_managament_text2 <<<." \
+        "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
+        "N/A"
+	fi
+}
+
+getCronInfo()
+{
+	echo "Getting cronjob info..." | tee -a $dcv_report_path
+	target_dir="${temp_dir}/cron_logs/"
+	
+	if [ -f /var/log/cron ]
+	then
+		sudo cp -a /var/log/cron* $target_dir
+	fi
+
+	if [ -f /var/log/crond ]
+	then
+		sudo cp -a /var/log/cron* $target_dir
+	fi
+	
+	sudo journalctl -u cron.service > ${target_dir}/journal_cron
+	sudo journalctl -u crond.service > ${target_dir}/journal_crond
+}
+
+getCronData()
+{
+	echo "Getting cronjob info..." | tee -a $dcv_report_path
+	target_dir="${temp_dir}/cron_data/"
+
+	if [ -d /var/spool/cron ]
+	then
+		sudo cp -a /var/spool/cron/* $target_dir
+	fi
+
+    if egrep -Riq "dcv" ${target_dir}/* > /dev/null 2>&1
+    then    
+        reportMessage \
+        "warning" \
+		"Found dcv string in cronjob scheduler" \
+        "${temp_dir}/warnings/dcv_cronjob_match" \
+		"Found cronjobs that has the string dcv in the commands. Please be sure that this is not causing any issue to DCV services."
+	fi
+}
+
+checkNetwork()
+{
+	echo "Checking Network services..." | tee -a $dcv_report_path
+	target_dir="${temp_dir}/network_log/"
+
+    if command_exists dmesg 
+	then
+        DMESG_ERRORS=$(sudo dmesg | grep -iE '(eth|eno|ens|enp|wl)[0-9]: (link|driver|hardware|error|timeout)')
+
+        if [ -n "$DMESG_ERRORS" ]
+		then
+			reportMessage \
+			"warning" \
+			"Network errors were found in dmesg." \
+			"${temp_dir}/warnings/found_network_issues" \
+			"You need to troubleshoot what is wrong with your ethernet card or the network, because this can cause issues in the DCV protocol."
+
+            sudo dmesg | grep -iE '(eth|eno|ens|enp|wl)[0-9]: (link|driver|hardware|error|timeout)' | grep -i "error\|fail\|down\|collision\|duplex\|timeout" > ${target_dir}/network_issues_log
+        fi
+    fi
+
+    if command_exists host || command_exists dig || command_exists nslookup
+	then
+        if command_exists host
+		then
+            if ! host $dns_test_domain &>/dev/null
+			then
+                dns_is_working="false"
+            else
+                dns_is_working="true"
+            fi
+        elif command_exists dig
+		then
+            if ! dig +short $dns_test_domain  &>/dev/null
+			then
+                dns_is_working="false"
+            else
+                dns_is_working="true"
+            fi
+        elif command_exists nslookup
+		then
+            if ! nslookup $dns_test_domain  &>/dev/null
+			then
+                dns_is_working="false"
+            else
+                dns_is_working="true"
+            fi
+        fi
+    else
+        dns_is_working="false"
+        print_finding "No DNS resolution tools available (host, dig, nslookup)"
+    fi
+
+	if $dns_is_working
+	then
+		reportMessage \
+		"info" \
+		"DNS resolution >>> IS WORKING <<<." \
+		"${target_dir}/dns_is_working"
+		"DNS is important to validate your DCV license and to reach your RLM server, if you are using one."
+	else
+		reportMessage \
+		"critical" \
+		"DNS resolution >>> IS NOT WORKING <<<." \
+		"${target_dir}/dns_is_NOT_working ${temp_dir}/warnings/dns_is_NOT_working" \
+		"You need to check your DHCP server and your /etc/resolv.conf to understand why your server can not solve DNS."
+	fi
+	
+    if command_exists ping
+	then
+        if ! ping -c 1 -W 3 $ip_test_external &>/dev/null
+		then
+			reportMessage \
+			"warning" \
+			"No external connectivity to ${ip_test_external}." \
+			"${target_dir}/ping_to_${ip_test_external}_is_NOT_working ${temp_dir}/warnings/ping_to_${ip_test_external}_is_NOT_working" \
+			"It seems that you have issues to get external connectivity. Can be your firewall blocking or some network issue. You need to check the DCV server logs for possible network issues."
+        else
+			reportMessage \
+			"info"
+			"External connectivity to ${ip_test_external} was tested and is working." \
+			"${target_dir}/ping_to_${ip_test_external}_is_working"
+        fi
+    fi
+
+	if command_exists netstat
+	then
+		sudo netstat -nlptu | tee ${target_dir}/network_netstat_nlptu
+	fi
 }
