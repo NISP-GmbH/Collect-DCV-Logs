@@ -1645,7 +1645,7 @@ checkNetwork()
 		reportMessage \
 		"info" \
 		"DNS resolution >>> IS WORKING <<<." \
-		"${target_dir}/dns_is_working"
+		"${target_dir}/dns_is_working" \
 		"DNS is important to validate your DCV license and to reach your RLM server, if you are using one."
 	else
 		reportMessage \
@@ -1674,7 +1674,7 @@ checkNetwork()
 
 	if command_exists netstat
 	then
-		sudo netstat -nlptu | tee ${target_dir}/network_netstat_nlptu
+		sudo netstat -nlptu | tee ${target_dir}/network_netstat_nlptu > /dev/null
 	fi
 }
 
