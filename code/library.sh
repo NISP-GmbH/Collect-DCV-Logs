@@ -324,6 +324,8 @@ removeTempFiles()
 				echo -e "${GREEN}To read with ${RED}co${YELLOW}lo${BLUE}rs ${GREEN}you can use:${NC}"
 				echo "less -R $dcv_report_file_name"
 				echo -e "${GREEN}The HTML report was saved in >>> $dcv_report_html_file_name <<<.${NC}"
+				echo -e "with ${RED}co${YELLOW}lo${BLUE}rs${NC}:"
+				echo "links $dcv_report_html_file_name"
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
 			fi
