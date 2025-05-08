@@ -14,47 +14,111 @@
 # deriving from the use or misuse of this information.
 ################################################################################
 
-headHtmlReport()
+doHtmlReport()
 {
-	cat << EOF >> $dcv_report_html_path
+	cat << EOF >> ${dcv_report_dir_path}/html_head
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NISP Report</title>
     <style>
+        :root {
+            --critical-color: red;
+            --info-color: green;
+            --warning-color: yellow;
+            --suggestion-color: cyan;
+        }
+        
         body {
             background-color: black;
-            color: white; /* Default text color for better visibility on black */
+            color: white;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
         }
+        
         h1 {
             color: white;
+            font-weight: 500;
+            font-size: 1.75rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
         }
+        
+        header h1 {
+            font-size: 2.25rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 0.75rem;
+        }
+        
+        .report-section {
+            border-left: 4px solid rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 0 0.5rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
         .critical {
-            color: red;
+            color: var(--critical-color);
+            border-left-color: var(--critical-color);
         }
-        .info {
-            color: green;
-        }
+        
         .warning {
-            color: yellow;
+            color: var(--warning-color);
+            border-left-color: var(--warning-color);
         }
-		.suggestion {
-            color: cyan;
+        
+        .info {
+            color: var(--info-color);
+            border-left-color: var(--info-color);
+        }
+        
+        .status-keyword {
+            font-weight: bold;
+        }
+        
+        .suggestion {
+            color: var(--suggestion-color);
+            margin-top: 0.5rem;
+        }
+        
+        a {
+            color: var(--suggestion-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .support-info {
+            margin: 1rem 0 2rem;
         }
     </style>
 </head>
 <body>
-<h1>NISP DCV Server report</h1>
-<p> If you need help: https://www.ni-sp.com/support/ </p>
+    <header>
+        <h1>NISP DCV Server Report</h1>
+        <div class="support-info">
+            <p>If you need help: <a href="https://www.ni-sp.com/support/" target="_blank">https://www.ni-sp.com/support/</a></p>
+        </div>
+    </header>
 EOF
-}
 
-tailHtmlReport()
-{
-	cat << EOF >> $dcv_report_html_path
+	cat << EOF >> ${dcv_report_dir_path}/html_tail
 </body>
 </html>
 EOF
+
+	cat ${dcv_report_dir_path}/html_head > $dcv_report_html_path
+	cat ${dcv_report_dir_path}/html_critical >> $dcv_report_html_path
+	cat ${dcv_report_dir_path}/html_warning >> $dcv_report_html_path
+	cat ${dcv_report_dir_path}/html_info >> $dcv_report_html_path
+	cat ${dcv_report_dir_path}/html_tail >> $dcv_report_html_path
+	rm -f ${dcv_report_dir_path}/html_*
 }
 
 command_exists()
@@ -74,11 +138,25 @@ reportMessage()
 	local log_file="$3"
 	local message_suggestion=$4
 
-	reportMessageWrite "${message_text}" "${log_file}" "${message_type}"
-	if [[ "${message_suggestion}x" != "x" ]]
-	then
-		reportMessageWrite "${message_suggestion}" "${log_file}" "suggestion"
-	fi
+	reportMessageWrite "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}"
+	reportMessageWriteHtml "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}"
+
+}
+
+reportMessageWriteHtml()
+{
+	local message_text="$1"
+	local log_file="$dcv_report_path $2"
+    local message_type=$3
+	local message_suggestion=$4
+
+cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
+    <div class="report-section ${message_type}">
+        <h1><span class="status-keyword ${message_type}">$(echo "${message_type}" | tr '[:lower:]' '[:upper:]'):</span> ${message_text}</h1>
+        <p class="suggestion">SUGGESTION: $message_suggestion</p>
+    </div>
+EOF
+
 }
 
 reportMessageWrite()
@@ -86,35 +164,24 @@ reportMessageWrite()
 	local message_text="$1"
 	local log_file="$dcv_report_path $2"
     local message_type=$3
+	local message_suggestion=$4
 
     case $message_type in
         critical)
 			echo -e "${dcv_report_separator}" | tee -a $log_file  > /dev/null
             echo -e "${RED}CRITICAL: ${message_text}${NC}" | tee -a $log_file
-			
-			echo "<p class="critical">${dcv_report_separator}</p>" | tee -a $dcv_report_html_path  > /dev/null
-			echo "<h1> <span class="critical">CRITICAL: ${message_text}</span></h1>" | tee -a $dcv_report_html_path  > /dev/null
         ;;
         warning)
 			echo -e "${dcv_report_separator}" | tee -a $log_file  > /dev/null
             echo -e "${YELLOW}WARNING: ${message_text}${NC}" | tee -a $log_file
-
-			echo "<p class="warning">${dcv_report_separator}</p>" | tee -a $dcv_report_html_path  > /dev/null
-			echo "<h1> <span class="warning">WARNING: ${message_text}</span></h1>" | tee -a $dcv_report_html_path  > /dev/null
         ;;
         info)
 			echo -e "${dcv_report_separator}" | tee -a $log_file  > /dev/null
             echo -e "${GREEN}INFO: ${message_text}${NC}" | tee -a $log_file
-
-			echo "<p class="info">${dcv_report_separator}</p>" | tee -a $dcv_report_html_path  > /dev/null
-			echo "<h1> <span class="info">INFO: ${message_text}</span></h1>" | tee -a $dcv_report_html_path  > /dev/null
-        ;;
-        suggestion)
-            echo -e "${BLUE}SUGGESTION: ${message_text}${NC}" | tee -a $log_file > /dev/null
-
-			echo "<p class="suggestion">SUGGESTION: ${message_text}</p>" | tee -a $dcv_report_html_path  > /dev/null
         ;;
     esac
+    
+	echo -e "${BLUE}SUGGESTION: ${message_suggestion}${NC}" | tee -a $log_file > /dev/null
 }
 
 welcomeMessage()
@@ -340,7 +407,7 @@ removeTempFiles()
 				echo -e "${GREEN}To read with ${RED}co${YELLOW}lo${BLUE}rs ${GREEN}you can use:${NC}"
 				echo "less -R $dcv_report_file_name"
 				echo -e "${GREEN}The HTML report was saved in >>> $dcv_report_html_file_name <<<.${NC}"
-				echo -e "with ${RED}co${YELLOW}lo${BLUE}rs${NC}:"
+				echo -e "${GREEN}with ${RED}co${YELLOW}lo${BLUE}rs${NC}:"
 				echo "links $dcv_report_html_file_name"
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
@@ -1713,6 +1780,7 @@ dcv_report_file_name="dcv_report.txt"
 dcv_report_html_file_name="dcv_report.html"
 dcv_report_html_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_html_file_name}"
 dcv_report_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_file_name}"
+dcv_report_dir_path="${temp_dir}/${dcv_report_dir_name}/"
 dcv_report_separator="------------------------------------------------------------------"
 dns_test_domain="google.com"
 ip_test_external="8.8.8.8"
@@ -1734,7 +1802,7 @@ do
 		--report-only)
 			report_only=true
 		;;
-		--collect_log_only)
+		--collect-logs)
 			collect_log_only=true
 		;;
 	esac
@@ -1745,7 +1813,6 @@ main()
     welcomeMessage
     setupUsefulTools
     createTempDirs
-	headHtmlReport
     checkPackagesVersions
     getSystemdData
     getOsData
@@ -1782,7 +1849,7 @@ main()
 	checkDcvManagementLinux
     #getDcvDataAfterReboot
     runDcvgldiag
-	tailHtmlReport
+	doHtmlReport
     compressLogCollection
     encryptLogCollection
     uploadLogCollection
