@@ -121,9 +121,10 @@ reportMessage()
 	local message_text=$2
 	local log_file="$3"
 	local message_suggestion=$4
+	local recommended_links=$5
 
-	reportMessageWrite "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}"
-	reportMessageWriteHtml "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}"
+	reportMessageWrite "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}" "${recommended_links}"
+	reportMessageWriteHtml "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}" "${recommended_links}"
 
 }
 
@@ -133,14 +134,36 @@ reportMessageWriteHtml()
 	local log_file="$dcv_report_path $2"
     local message_type=$3
 	local message_suggestion=$4
+	local recommended_links=$5
 
-cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
+	cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
     <div class="report-section ${message_type}">
         <h1><span class="status-keyword ${message_type}">$(echo "${message_type}" | tr '[:lower:]' '[:upper:]'):</span> ${message_text}</h1>
-        <p class="suggestion">SUGGESTION: $message_suggestion</p>
-    </div>
+        <p class="suggestion"><strong>SUGGESTION:</strong> $message_suggestion</p>
 EOF
 
+	if [[ "${recommended_links}x" != "x" ]]
+	then
+		cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
+        <p class="suggestion"><strong>Recommended links:</strong></p>
+		<ul>
+EOF
+		for link_recommended in $recommended_links
+		do
+
+			cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
+	<li><a href="${link_recommended}" target="_blank">${link_recommended}</a></li>
+EOF
+		done
+
+		cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
+	</ul>
+EOF
+	fi
+
+	cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
+    </div>
+EOF
 }
 
 reportMessageWrite()
@@ -149,6 +172,7 @@ reportMessageWrite()
 	local log_file="$dcv_report_path $2"
     local message_type=$3
 	local message_suggestion=$4
+	local recommended_links=$5
 
     case $message_type in
         critical)
@@ -166,7 +190,13 @@ reportMessageWrite()
     esac
     
 	echo -e "${BLUE}SUGGESTION: ${message_suggestion}${NC}" | tee -a $log_file > /dev/null
+	echo -e "Recommended links:" | tee -a $log_file > /dev/null
+	for link_recommended in $recommended_links
+	do
+		echo "- $link_recommended" | tee -a $log_file > /dev/null
+	done
 }
+
 
 welcomeMessage()
 {
@@ -641,7 +671,8 @@ checkDisplayManager()
 			"critical" \
 			"${display_manager_name} >>> IS NOT RUNNING <<<." \
 			"${temp_dir}/warnings/display_manager_${display_manager_name}_is_NOT_running" \
-			"You need to check your journalctl to understand why your display-manager is down. You can find more about display managers here: https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
+			"You need to check your journalctl to understand why your display-manager is down. You can find more about display managers here:" \
+			"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
 			display_manager_status="not running"
         fi
     else
@@ -651,13 +682,15 @@ checkDisplayManager()
 			"info" \
 			"Status: ${display_manager_name} >>> IS RUNNING <<<." \
 			"" \ 
+			"" \
 			""
 			display_manager_status="running"
         else
 			reportMessage \
 			"critical" \
 			"Status: ${display_manager_name} >>> IS NOT RUNNING <<<." \
-			"You need to check your /var/log/messages or /var/log/dmesg to understand why your display-manager is down. You can find more about display managers here: https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
+			"You need to check your /var/log/messages or /var/log/dmesg to understand why your display-manager is down. You can find more about display managers here:" \
+			"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
 			display_manager_status="not running"
         fi
     fi
@@ -675,7 +708,8 @@ lookForDmIssues()
 		"warning" \
 		"Found some unusual error/fail/deny/timeout in SDDM logs." \
 		"${temp_dir}/warnings/gdm_errors" \
-		"Look our tutorial about how to correctly build SDDM environment in https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
+		"Look our tutorial about how to correctly build SDDM environment in:" \ 
+		"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
 
 		if egrep -Ri "$regular_expression" $log_dir_to_look  | egrep -i dcv > ${warning_dir}/${display_manager_name}_dcv_errors
 		then
@@ -683,7 +717,8 @@ lookForDmIssues()
 			"critical" \
 			"Found some DISPLAY MANAGER issue that are causing issues with DCV." \
 			"${warning_dir}/${display_manager_name}_dcv_errors" \
-			"Please check your >>> $display_manager_name <<< DISPLAY MANAGER logs to understand why DCV process is being affected"
+			"Please check your >>> $display_manager_name <<< DISPLAY MANAGER logs to understand why DCV process is being affected." \
+			""
 		fi
 	fi
 }
@@ -966,7 +1001,8 @@ EOF
         "critical" \
         "You have a license issue. Your current license does not support your current DCV session." \
         "${temp_dir}/warnings/dcv_license_version_failure" \
-        "Please contact the NISP support to check how this can be solved: https://www.ni-sp.com/support/"		
+        "Please contact the NISP support to check how this can be solved:" \
+		"https://www.ni-sp.com/support/"		
 		
 		egrep -Ri "Failed checkout of product.*with version" ${target_dir}/* >> ${temp_dir}/warnings/dcv_license_version_failure
 	fi
@@ -977,7 +1013,8 @@ EOF
         "critical" \
         "Your DCV server can not close some sessions." \
         "${temp_dir}/warnings/dcv_server_can_not_close_session" \
-        "Please contact the NISP support to check how this can be solved: https://www.ni-sp.com/support/"		
+        "Please contact the NISP support to check how this can be solved:" \ 
+		"https://www.ni-sp.com/support/"		
 
 		egrep -Ri "There was a problem stopping the session" ${target_dir}/* > ${temp_dir}/warnings/dcv_server_can_not_close_session
 	fi
@@ -992,19 +1029,25 @@ runDcvgldiag()
 		echo "" >> $dcv_report_path
 		echo "Executing dcvgldiag test..." | tee -a $dcv_report_path
 
-        sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
-
-		if cat ${target_dir}/dcvgldiag.log | egrep -iq "test result.*error"
+		if command_exists dcvgldiag
 		then
-			cat ${target_dir}/dcvgldiag.log | tee -a $dcv_report_path > /dev/null
-			sed -i 's/Test Result: ERROR/[0;31mTest Result: ERROR[0m/g' $dcv_report_path
-			sed -i 's/Test Result: SUCCESS/[0;32mTest Result: SUCCESS[0m/g' $dcv_report_path
+	        sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
+		fi
 
-			reportMessage \
-			"warning" \
-			"Errors found in DCVGLDIAG test." \
-			"" \
-			"Review the text below to fix the possible environment issues"
+		if [ -f ${target_dir}/dcvgldiag.log ]
+		then
+			if cat ${target_dir}/dcvgldiag.log | egrep -iq "test result.*error"
+			then
+				cat ${target_dir}/dcvgldiag.log | tee -a $dcv_report_path > /dev/null
+				sed -i 's/Test Result: ERROR/[0;31mTest Result: ERROR[0m/g' $dcv_report_path
+				sed -i 's/Test Result: SUCCESS/[0;32mTest Result: SUCCESS[0m/g' $dcv_report_path
+
+				reportMessage \
+				"warning" \
+				"Errors found in DCVGLDIAG test." \
+				"" \
+				"Execute the \"dcvgldiag\" command and check the report."
+			fi
 		fi
 
         if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
@@ -1195,7 +1238,8 @@ getOsData()
 		"warning" \
 		"Segmentation fault events found in journalctl..." \
 		"${temp_dir}/warnings/segmentation_fault_found" \
-		"${dcv_report_text_about_segfault}"
+		"${dcv_report_text_about_segfault}" \ 
+		"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
 
 		if egrep -Ri "(segfault|segmentation fault)" ${target_dir}/* | egrep -iq "dcv" > /dev/null 2>&1
 		then
@@ -1525,7 +1569,8 @@ getXorgData()
 		"critical" \
 		"X not found, X -configure can not be executed." \
 		"${temp_dir}/warnings/X_was_not_found" \
-		"X was not found. Maybe your PATH is wrong or you do not have a complete GUI installed. Please check our GUI guide: https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
+		"X was not found. Maybe your PATH is wrong or you do not have a complete GUI installed. Please check our GUI guide:" \ 
+		"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
     fi
 
     detect_service=""
@@ -1542,7 +1587,8 @@ getXorgData()
 		"info" \
 		"Wayland >>> IS NOT <<< RUNNING!" \
 		"${temp_dir}/warnings/wayland_is_not_running" \
-		"Wayland is already supported for DCV Viewer, but not DCV Server. The support is under the roadmap and you can check any news here: https://docs.aws.amazon.com/dcv/latest/adminguide/doc-history-release-notes.html"
+		"Wayland is already supported for DCV Viewer, but not DCV Server. The support is under the roadmap and you can check any news here:" \ 
+		"https://docs.aws.amazon.com/dcv/latest/adminguide/doc-history-release-notes.html"
     fi
 
     XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
@@ -1688,7 +1734,6 @@ checkNetwork()
         fi
     else
         dns_is_working="false"
-        print_finding "No DNS resolution tools available (host, dig, nslookup)"
     fi
 
 	if $dns_is_working
@@ -1717,9 +1762,11 @@ checkNetwork()
 			"It seems that you have issues to get external connectivity. Can be your firewall blocking or some network issue. You need to check the DCV server logs for possible network issues."
         else
 			reportMessage \
-			"info"
+			"info" ]
 			"External connectivity to ${ip_test_external} was tested and is working." \
-			"${target_dir}/ping_to_${ip_test_external}_is_working"
+			"${target_dir}/ping_to_${ip_test_external}_is_working" \
+			"" \
+			""
         fi
     fi
 
