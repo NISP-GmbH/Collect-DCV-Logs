@@ -87,7 +87,8 @@ doHtmlReport()
     <header>
         <h1>NISP DCV Server Report</h1>
         <div class="support-info">
-            <p>If you need help: <a href="https://www.ni-sp.com/support/" target="_blank">https://www.ni-sp.com/support/</a></p>
+            <p>If you need help:</p>
+			<p> <a href="https://www.ni-sp.com/support/" target="_blank">https://www.ni-sp.com/support/</a></p>
         </div>
     </header>
 EOF
@@ -117,21 +118,26 @@ byebyeMessage()
 
 reportMessage()
 {
-	local message_type=$1
-	local message_text=$2
-	local log_file="$3"
-	local message_suggestion=$4
-	local recommended_links=$5
+	local message_type="$1"
+	local message_text="$2"
+	if [[ "$3" == "null" ]]
+	then
+		local log_file="${dcv_report_path}"
+	else
+		local log_file="${dcv_report_path} $3"
+	fi
+	local message_suggestion="$4"
+	local recommended_links="$5"
 
 	reportMessageWrite "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}" "${recommended_links}"
-	reportMessageWriteHtml "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}" "${recommended_links}"
+	reportMessageWriteHtml "${message_text}" "null" "${message_type}" "${message_suggestion}" "${recommended_links}"
 
 }
 
 reportMessageWriteHtml()
 {
 	local message_text="$1"
-	local log_file="$dcv_report_path $2"
+	local log_file="$2"
     local message_type=$3
 	local message_suggestion=$4
 	local recommended_links=$5
@@ -139,10 +145,16 @@ reportMessageWriteHtml()
 	cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
     <div class="report-section ${message_type}">
         <h1><span class="status-keyword ${message_type}">$(echo "${message_type}" | tr '[:lower:]' '[:upper:]'):</span> ${message_text}</h1>
-        <p class="suggestion"><strong>SUGGESTION:</strong> $message_suggestion</p>
 EOF
 
-	if [[ "${recommended_links}x" != "x" ]]
+	if [[ "${message_suggestion}" != "null" ]]
+	then
+		cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
+	        <p class="suggestion"><strong>SUGGESTION:</strong> $message_suggestion</p>
+EOF
+	fi
+
+	if [[ "${recommended_links}" != "null" ]]
 	then
 		cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
         <p class="suggestion"><strong>Recommended links:</strong></p>
@@ -150,14 +162,13 @@ EOF
 EOF
 		for link_recommended in $recommended_links
 		do
-
 			cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
 	<li><a href="${link_recommended}" target="_blank">${link_recommended}</a></li>
 EOF
 		done
 
 		cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
-	</ul>
+		</ul>
 EOF
 	fi
 
@@ -169,11 +180,12 @@ EOF
 reportMessageWrite()
 {
 	local message_text="$1"
-	local log_file="$dcv_report_path $2"
+	local log_file="$2"
     local message_type=$3
 	local message_suggestion=$4
 	local recommended_links=$5
 
+	
     case $message_type in
         critical)
 			echo -e "${dcv_report_separator}" | tee -a $log_file  > /dev/null
@@ -189,12 +201,19 @@ reportMessageWrite()
         ;;
     esac
     
-	echo -e "${BLUE}SUGGESTION: ${message_suggestion}${NC}" | tee -a $log_file > /dev/null
-	echo -e "Recommended links:" | tee -a $log_file > /dev/null
-	for link_recommended in $recommended_links
-	do
-		echo "- $link_recommended" | tee -a $log_file > /dev/null
-	done
+	if [[ "${message_suggestion}" != "null" ]]
+	then
+		echo -e "${BLUE}SUGGESTION: ${message_suggestion}${NC}" | tee -a $log_file > /dev/null
+	fi
+
+	if [[ "${recommended_links}" != "null" ]]
+	then
+		echo -e "Recommended links:" | tee -a $log_file > /dev/null
+		for link_recommended in $recommended_links
+		do
+			echo "- $link_recommended" | tee -a $log_file > /dev/null
+		done
+	fi
 }
 
 
@@ -421,8 +440,6 @@ removeTempFiles()
 				echo -e "${GREEN}To read with ${RED}co${YELLOW}lo${BLUE}rs ${GREEN}you can use:${NC}"
 				echo "less -R $dcv_report_file_name"
 				echo -e "${GREEN}The HTML report was saved in >>> $dcv_report_html_file_name <<<.${NC}"
-				echo -e "${GREEN}with ${RED}co${YELLOW}lo${BLUE}rs${NC}:"
-				echo "links $dcv_report_html_file_name"
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
 			fi
@@ -664,7 +681,9 @@ checkDisplayManager()
 			reportMessage \
 			"info" \
 			"${display_manager_name} >>> IS RUNNING <<<." \
-			""
+			"null" \
+			"null" \
+			"null"
 			display_manager_status="running"
         else
 			reportMessage \
@@ -681,14 +700,15 @@ checkDisplayManager()
 			reportMessage \
 			"info" \
 			"Status: ${display_manager_name} >>> IS RUNNING <<<." \
-			"" \ 
-			"" \
-			""
+			"null" \
+			"null" \
+			"null"
 			display_manager_status="running"
         else
 			reportMessage \
 			"critical" \
 			"Status: ${display_manager_name} >>> IS NOT RUNNING <<<." \
+			"null" \
 			"You need to check your /var/log/messages or /var/log/dmesg to understand why your display-manager is down. You can find more about display managers here:" \
 			"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
 			display_manager_status="not running"
@@ -708,7 +728,7 @@ lookForDmIssues()
 		"warning" \
 		"Found some unusual error/fail/deny/timeout in SDDM logs." \
 		"${temp_dir}/warnings/gdm_errors" \
-		"Look our tutorial about how to correctly build SDDM environment in:" \ 
+		"Look our tutorial about how to correctly build SDDM environment in:" \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
 
 		if egrep -Ri "$regular_expression" $log_dir_to_look  | egrep -i dcv > ${warning_dir}/${display_manager_name}_dcv_errors
@@ -718,7 +738,7 @@ lookForDmIssues()
 			"Found some DISPLAY MANAGER issue that are causing issues with DCV." \
 			"${warning_dir}/${display_manager_name}_dcv_errors" \
 			"Please check your >>> $display_manager_name <<< DISPLAY MANAGER logs to understand why DCV process is being affected." \
-			""
+			"null"
 		fi
 	fi
 }
@@ -857,7 +877,8 @@ getDcvMemoryConfig()
         "critical" \
         ">>> dcv <<< binary was not found tine the PATH >>> $PATH <<<." \
         "${temp_dir}/warnings/dcv_binary_not_found" \
-        "Please check if DCV server was correctly installed and if is your PATH variable. The script can not execute dcv commands."
+        "Please check if DCV server was correctly installed and if is your PATH variable. The script can not execute dcv commands." \
+		"null"
 	fi
 }
 
@@ -1013,7 +1034,7 @@ EOF
         "critical" \
         "Your DCV server can not close some sessions." \
         "${temp_dir}/warnings/dcv_server_can_not_close_session" \
-        "Please contact the NISP support to check how this can be solved:" \ 
+        "Please contact the NISP support to check how this can be solved:" \
 		"https://www.ni-sp.com/support/"		
 
 		egrep -Ri "There was a problem stopping the session" ${target_dir}/* > ${temp_dir}/warnings/dcv_server_can_not_close_session
@@ -1045,8 +1066,9 @@ runDcvgldiag()
 				reportMessage \
 				"warning" \
 				"Errors found in DCVGLDIAG test." \
-				"" \
-				"Execute the \"dcvgldiag\" command and check the report."
+				"null" \
+				"Execute the \"dcvgldiag\" command and check the report." \
+				"null"
 			fi
 		fi
 
@@ -1056,9 +1078,15 @@ runDcvgldiag()
             echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
         fi
 
-        if cat ${target_dir}/dcvgldiag.log | egrep -iq "Detected nouveau kernel module"
+        if sudo lsmod | grep -iq "nouveau"
         then
             echo "Detected nouveau kernel module" > ${temp_dir}/warnings/nouveau_kernel_module_found
+			reportMessage \
+			"critical" \
+			"Found nouveau driver loaded." \
+			"${temp_dir}/warnings/nouveau_kernel_module_found" \
+			"You need to block the opensource nouveau driver, otherwise the nvidia module will not be loaded." \
+			"https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-how-to-block-nouveau-driver"
         fi
     else
         echo "dcvgldiag not installed" > ${temp_dir}/warnings/dcvgldiag_not_installed
@@ -1213,7 +1241,8 @@ getOsData()
 			"critical" \
 			"Found SELINUX preventing DCV service to work." \
 			"${temp_dir}/warnings/selinux_is_preventing_dcv" \
-			"Please review your /var/log/messages to identify which DCV service is being blocked by SELINUX."
+			"Please review your /var/log/messages to identify which DCV service is being blocked by SELINUX." \
+			"null"
 		fi
     fi
 
@@ -1238,7 +1267,7 @@ getOsData()
 		"warning" \
 		"Segmentation fault events found in journalctl..." \
 		"${temp_dir}/warnings/segmentation_fault_found" \
-		"${dcv_report_text_about_segfault}" \ 
+		"${dcv_report_text_about_segfault}" \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
 
 		if egrep -Ri "(segfault|segmentation fault)" ${target_dir}/* | egrep -iq "dcv" > /dev/null 2>&1
@@ -1248,7 +1277,8 @@ getOsData()
 			"critical" \
 			"DCV process is having segmentation fault." \
 			"${temp_dir}/warnings/segmentation_fault_found_dcv" \
-			"${dcv_report_text_about_segfault}"
+			"${dcv_report_text_about_segfault}" \
+			"null"
 		fi
 
     fi
@@ -1260,7 +1290,8 @@ getOsData()
         "critical" \
         "Identified some issue with Xdcv and gnome-shell." \
         "${temp_dir}/warnings/Xdcv_errors" \
-        "Found and issue between gnome-shell and Xdcv. Please check if you are using X11, not Wayland, and if you have a complete GNOME environment installed."
+        "Found and issue between gnome-shell and Xdcv. Please check if you are using X11, not Wayland, and if you have a complete GNOME environment installed." \
+		"null"
 	fi
 
 	if egrep -Riq "gnome-terminal-server.*Fatal IO error" ${target_dir}/*
@@ -1269,7 +1300,8 @@ getOsData()
         "critical" \
         "Identified Fatal IO error with gnome-terminal-server." \
         "${temp_dir}/warnings/gnome_fatal_io_error" \
-        "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors."
+        "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors." \
+		"null"
 		
 		egrep -Ri "gnome-terminal-server.*Fatal IO error" >> ${temp_dir}/warnings/gnome_fatal_io_error
 	fi
@@ -1280,8 +1312,8 @@ getOsData()
         "warning" \
         "Found BAR failures" \
         "${temp_dir}/warnings/bar_failures_found" \
-        "BAR stands for Base Address Register, which is a mechanism used by PCI devices to request memory or I/O space from the system. These errors typically occur when: (A) The system doesn't have enough I/O address space available to satisfy all PCI devices. (B) There might be conflicts between devices requesting the same resources. (C) The BIOS/UEFI didn't properly allocate or reserve the necessary resources. If you are using a virtualized environment with a lot of virtual devices, for example, is possible that your VM has not enough resources to support all devices, what can cause DCV issues, specially when GPU is being used. While these errors look concerning, they don't always cause functional problems. Many systems can still operate normally with some BAR allocation failures, as the kernel typically tries to work around these issues. "
-
+        "BAR stands for Base Address Register, which is a mechanism used by PCI devices to request memory or I/O space from the system. These errors typically occur when: (A) The system doesn't have enough I/O address space available to satisfy all PCI devices. (B) There might be conflicts between devices requesting the same resources. (C) The BIOS/UEFI didn't properly allocate or reserve the necessary resources. If you are using a virtualized environment with a lot of virtual devices, for example, is possible that your VM has not enough resources to support all devices, what can cause DCV issues, specially when GPU is being used. While these errors look concerning, they don't always cause functional problems. Many systems can still operate normally with some BAR allocation failures, as the kernel typically tries to work around these issues. " \
+		"null"
 		egrep -Ri "BAR.*failed to assign" >> ${temp_dir}/warnings/bar_failures_found
 	fi
 
@@ -1292,7 +1324,8 @@ getOsData()
         "warning" \
         "NVIDIA: Failed to bind sideband socket" \
         "${temp_dir}/warnings/nvidia_fail_to_bind" \
-        "The sideband socket is part of NVIDIA's driver communication system, used for exchanging information between different components of the graphics system. When this binding fails, it typically indicates: (A) A permission problem (the process doesn't have rights to access the socket). (B) The socket is already in use by another process. (C) The NVIDIA driver might be experiencing conflicts with other system components. You need to check if you have conflicting drivers."
+        "The sideband socket is part of NVIDIA's driver communication system, used for exchanging information between different components of the graphics system. When this binding fails, it typically indicates: (A) A permission problem (the process doesn't have rights to access the socket). (B) The socket is already in use by another process. (C) The NVIDIA driver might be experiencing conflicts with other system components. You need to check if you have conflicting drivers." \
+		"null"
 
 		egrep -Ri "NVIDIA.*Failed to bind sideband socket" >> ${temp_dir}/nvidia_fail_to_bind
 	fi
@@ -1379,7 +1412,8 @@ getSmartWarnings()
 		"warning" \
 		"$disk_name - SMART overall health test FAILED!" \
 		"$smart_disk_warnings" \
-		"Enable the S.M.A.R.T. in your storage devices."
+		"Enable the S.M.A.R.T. in your storage devices." \
+		"null"
     fi
     
     # Check for reallocated sectors
@@ -1393,7 +1427,8 @@ getSmartWarnings()
 			"critical" \
 			"$disk_name - Reallocated sectors found: $value" \
 			"$smart_disk_warnings" \
-			"This indicates that your drive has detected bad sectors and has remapped them to spare sectors. This is an early warning sign of potential drive failure. Please check your drive."
+			"This indicates that your drive has detected bad sectors and has remapped them to spare sectors. This is an early warning sign of potential drive failure. Please check your drive." \
+			"null"
         fi
     fi
     
@@ -1408,7 +1443,8 @@ getSmartWarnings()
 			"critical" \
 			"$disk_name - Pending sectors found: $value" \
 			"$smart_disk_warnings" \
-			"Pending sectors are sectors that have been identified as problematic but haven't yet been remapped. You need to check if you need to replace your storage."
+			"Pending sectors are sectors that have been identified as problematic but haven't yet been remapped. You need to check if you need to replace your storage." \
+			"null"
         fi
     fi
     
@@ -1423,7 +1459,8 @@ getSmartWarnings()
 			"critical" \
 			"$disk_name - Offline uncorrectable sectors found: $value" \
 			"$smart_disk_warnings" \
-			"These are sectors that the drive has determined are damaged and cannot be read or repaired. You need to replace your storage, as everything can be corrupted."
+			"These are sectors that the drive has determined are damaged and cannot be read or repaired. You need to replace your storage, as everything can be corrupted." \
+			"null"
         fi
     fi
     
@@ -1438,7 +1475,8 @@ getSmartWarnings()
 			"warning" \
 			"$disk_name - High temperature detected: ${temp_value}°C" \
 			"$smart_disk_warnings" \
-			"High temperatures can damage your storage and corrupt the filesystem. You need to cool down your storage."
+			"High temperatures can damage your storage and corrupt the filesystem. You need to cool down your storage." \
+			"null"
         fi
     fi
     
@@ -1450,7 +1488,8 @@ getSmartWarnings()
 		"critical" \
 		"$disk_name - SMART Error Log has $error_count entries" \
 		"$smart_disk_warnings" \
-		"You need to run >>> smartctl -l error <<< and check all entries. There is a chance that your storage hardware is about to fail."
+		"You need to run >>> smartctl -l error <<< and check all entries. There is a chance that your storage hardware is about to fail." \
+		"null"
     fi
     
     # Check power-on hours (just information, not a warning)
@@ -1465,7 +1504,8 @@ getSmartWarnings()
 			"warning" \
 			"$disk_name - Drive has been running for more than 5 years ($hours_value hours)" \
 			"$smart_disk_warnings" \
-			"Please check your drive health as it is running for more than 5 years. Some devices types, like SSD, will start to have seriously degradation after so much time."
+			"Please check your drive health as it is running for more than 5 years. Some devices types, like SSD, will start to have seriously degradation after so much time." \
+			"null"
         fi
     fi
 }
@@ -1484,8 +1524,8 @@ getXorgData()
 		"warning" \
 		"DISPLAY var content: >>> $DISPLAY <<<" \
 		"${target_dir}/display_content_var ${temp_dir}/warnings/display_var_is_empty" \
-		"The DISPLAY var is empty. Is normal if you executed this script outside of GUI session."
-
+		"The DISPLAY var is empty. Is normal if you executed this script outside of GUI session." \
+		"null"
         echo "The user executing is >>> $USER <<<" >> ${temp_dir}/warnings/display_var_is_empty 2>&1
     fi
 
@@ -1504,7 +1544,8 @@ getXorgData()
 		"warning" \
 		"/usr/share/X11 was found, but usually is expected /etc/X11. Check the last Xorg.log to identify which one is being used." \
 		"${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11" \
-		"You need to check xorg.conf.d of both directories (/etc/X11 and /usr/share/X11) and look for configuration files that can enter in conflict with yout environment. For example: radeon drivers being loaded with nvidia driver. We recommend to backup and remove all xorg.conf.d/* files and leave just the ones that you really need. Also, check your /var/log/Xorg.log* files to verify which directories are being loaded and which xorg.conf file is being used."
+		"You need to check xorg.conf.d of both directories (/etc/X11 and /usr/share/X11) and look for configuration files that can enter in conflict with yout environment. For example: radeon drivers being loaded with nvidia driver. We recommend to backup and remove all xorg.conf.d/* files and leave just the ones that you really need. Also, check your /var/log/Xorg.log* files to verify which directories are being loaded and which xorg.conf file is being used." \
+		"null"
     fi
 
     if ls /etc/X11/xorg.conf.d/*nvidia* &>/dev/null
@@ -1513,7 +1554,8 @@ getXorgData()
 		"warning" \
 		"A nvidia config file was found in >>> /etc/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." \
 		"${temp_dir}/warnings/nvidia_xorgconf_possible_override" \
-		"Check if you really need the additional nvidia configuration files found in /etc/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file."
+		"Check if you really need the additional nvidia configuration files found in /etc/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file." \
+		"null"
     fi
 
     if ls /usr/share/X11/xorg.conf.d/*nvidia* &>/dev/null
@@ -1522,7 +1564,8 @@ getXorgData()
 		"warning" \
 		"A nvidia config file was found in >>> /usr/share/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." \
 		"${temp_dir}/warnings/nvidia_xorgconf_possible_override" \
-		"Check if you really need the additional nvidia configuration files found in /usr/share/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file."
+		"Check if you really need the additional nvidia configuration files found in /usr/share/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file." \
+		"null"
     fi
 
     find /etc/X11 -type f -exec grep -l "OutputClass" {} + | xargs -I {} readlink -f {} >> ${temp_dir}/warnings/found_nvidia_output_class_files_possible_xorgconf_override 2> /dev/null
@@ -1569,7 +1612,7 @@ getXorgData()
 		"critical" \
 		"X not found, X -configure can not be executed." \
 		"${temp_dir}/warnings/X_was_not_found" \
-		"X was not found. Maybe your PATH is wrong or you do not have a complete GUI installed. Please check our GUI guide:" \ 
+		"X was not found. Maybe your PATH is wrong or you do not have a complete GUI installed. Please check our GUI guide:" \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
     fi
 
@@ -1581,13 +1624,14 @@ getXorgData()
 		"critical" \
 		"Wayland >>> IS <<< RUNNING!" \
 		"${temp_dir}/warnings/wayland_is_running" \
-		"You need to run DCV Server with X11 backend. Wayland is not supported yet and will cause issues under DCV Service. The DCV Viewer supports Wayland since 2024.0-17979 version."
+		"You need to run DCV Server with X11 backend. Wayland is not supported yet and will cause issues under DCV Service. The DCV Viewer supports Wayland since 2024.0-17979 version." \
+		"null"
 	else
 		reportMessage \
 		"info" \
 		"Wayland >>> IS NOT <<< RUNNING!" \
 		"${temp_dir}/warnings/wayland_is_not_running" \
-		"Wayland is already supported for DCV Viewer, but not DCV Server. The support is under the roadmap and you can check any news here:" \ 
+		"Wayland is already supported for DCV Viewer, but not DCV Server. The support is under the roadmap and you can check any news here:" \
 		"https://docs.aws.amazon.com/dcv/latest/adminguide/doc-history-release-notes.html"
     fi
 
@@ -1599,7 +1643,8 @@ getXorgData()
 		"warning" \
 		"Not possible to execute xrandr: display not found." \
 		"${target_dir}/xrandr_can_not_be_executed" \
-		"The DISPLAY variable seems empty. This is normal if you are executing this script outside of GUI session. What you can do is try to export the DISPLAY variable, so the xrandr test will work."
+		"The DISPLAY variable seems empty. This is normal if you are executing this script outside of GUI session. What you can do is try to export the DISPLAY variable, so the xrandr test will work." \
+		"null"
     else
         if command -v xrandr > /dev/null 2>&1
         then
@@ -1641,7 +1686,8 @@ checkDcvManagementLinux()
       	"info" \
        	"DCV Management Linux service is >>> $dcv_managament_text1 <<< and >>> $dcv_managament_text2 <<<." \
         "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
-        "N/A"
+        "null" \
+		"null"
 	fi
 }
 
@@ -1680,7 +1726,8 @@ getCronData()
         "warning" \
 		"Found dcv string in cronjob scheduler" \
         "${temp_dir}/warnings/dcv_cronjob_match" \
-		"Found cronjobs that has the string dcv in the commands. Please be sure that this is not causing any issue to DCV services."
+		"Found cronjobs that has the string dcv in the commands. Please be sure that this is not causing any issue to DCV services." \
+		"null"
 	fi
 }
 
@@ -1699,7 +1746,8 @@ checkNetwork()
 			"warning" \
 			"Network errors were found in dmesg." \
 			"${temp_dir}/warnings/found_network_issues" \
-			"You need to troubleshoot what is wrong with your ethernet card or the network, because this can cause issues in the DCV protocol."
+			"You need to troubleshoot what is wrong with your ethernet card or the network, because this can cause issues in the DCV protocol." \
+			"null"
 
             sudo dmesg | grep -iE '(eth|eno|ens|enp|wl)[0-9]: (link|driver|hardware|error|timeout)' | grep -i "error\|fail\|down\|collision\|duplex\|timeout" > ${target_dir}/network_issues_log
         fi
@@ -1742,13 +1790,15 @@ checkNetwork()
 		"info" \
 		"DNS resolution >>> IS WORKING <<<." \
 		"${target_dir}/dns_is_working" \
-		"DNS is important to validate your DCV license and to reach your RLM server, if you are using one."
+		"DNS is important to validate your DCV license and to reach your RLM server, if you are using one." \
+		"null"
 	else
 		reportMessage \
 		"critical" \
 		"DNS resolution >>> IS NOT WORKING <<<." \
 		"${target_dir}/dns_is_NOT_working ${temp_dir}/warnings/dns_is_NOT_working" \
-		"You need to check your DHCP server and your /etc/resolv.conf to understand why your server can not solve DNS."
+		"You need to check your DHCP server and your /etc/resolv.conf to understand why your server can not solve DNS." \
+		"null"
 	fi
 	
     if command_exists ping
@@ -1759,14 +1809,15 @@ checkNetwork()
 			"warning" \
 			"No external connectivity to ${ip_test_external}." \
 			"${target_dir}/ping_to_${ip_test_external}_is_NOT_working ${temp_dir}/warnings/ping_to_${ip_test_external}_is_NOT_working" \
-			"It seems that you have issues to get external connectivity. Can be your firewall blocking or some network issue. You need to check the DCV server logs for possible network issues."
+			"It seems that you have issues to get external connectivity. Can be your firewall blocking or some network issue. You need to check the DCV server logs for possible network issues." \
+			"null"
         else
 			reportMessage \
-			"info" ]
+			"info" \
 			"External connectivity to ${ip_test_external} was tested and is working." \
 			"${target_dir}/ping_to_${ip_test_external}_is_working" \
-			"" \
-			""
+			"null" \
+			"null"
         fi
     fi
 
