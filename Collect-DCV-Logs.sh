@@ -257,7 +257,7 @@ welcomeMessage()
 
 		if ! echo $option_selected | egrep -iq "^(1|2)$"
 		then
-			echo "Option >>> $option_selected <<< invalid. Exiting..."
+			echo "Option >> $option_selected << invalid. Exiting..."
 			exit 24	
 		fi
 	elif [[ "$collect_log_only" == "true" && "$report_only" == "false" ]]
@@ -275,7 +275,7 @@ welcomeMessage()
 
 	case $option_selected in
 		1)
-			echo -e "${GREEN}The report will be saved in the same directory of the script with the name >>> $dcv_report_file_name <<< and >>> $dcv_report_html_file_name <<<.${NC}"
+			echo -e "${GREEN}The report will be saved in the same directory of the script with the name >> $dcv_report_file_name << and >> $dcv_report_html_file_name <<.${NC}"
 			report_only="true"
 		;;
 		2)
@@ -346,7 +346,7 @@ checkLinuxDistro()
                     ubuntu_minor_version=$(echo $ubuntu_version | cut -d '.' -f 2)
                     if ( [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24  ]] ) && [[ $ubuntu_minor_version -ne 04 ]]
                     then
-                        echo "Your Ubuntu version >>> $ubuntu_version <<< is not supported. Aborting..."
+                        echo "Your Ubuntu version >> $ubuntu_version << is not supported. Aborting..."
                         exit 20
                     fi
                 else
@@ -452,10 +452,10 @@ removeTempFiles()
 				cp -a ${dcv_report_html_path} .
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
-				echo -e "${GREEN}The TXT report was saved in >>> $dcv_report_file_name <<<.${NC}"
+				echo -e "${GREEN}The TXT report was saved in >> $dcv_report_file_name <<.${NC}"
 				echo -e "${GREEN}To read with ${RED}co${YELLOW}lo${BLUE}rs ${GREEN}you can use:${NC}"
 				echo "less -R $dcv_report_file_name"
-				echo -e "${GREEN}The HTML report was saved in >>> $dcv_report_html_file_name <<<.${NC}"
+				echo -e "${GREEN}The HTML report was saved in >> $dcv_report_html_file_name <<.${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
 			fi
@@ -485,7 +485,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_info os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -582,7 +582,7 @@ checkPackagesVersions()
 getEnvironmentVars()
 {
     echo "Collecting environment variables..."
-    target_dir="${temp_dir}/os_info/"
+    target_dir="${temp_dir}/os_data/"
 
 	env > ${target_dir}/env_command
 	env | sort > ${target_dir}/env_sorted_command
@@ -696,7 +696,7 @@ checkDisplayManager()
 		then
 			reportMessage \
 			"info" \
-			"${display_manager_name} >>> IS RUNNING <<<." \
+			"${display_manager_name} >> IS RUNNING <<." \
 			"null" \
 			"null" \
 			"null"
@@ -704,7 +704,7 @@ checkDisplayManager()
         else
 			reportMessage \
 			"critical" \
-			"${display_manager_name} >>> IS NOT RUNNING <<<." \
+			"${display_manager_name} >> IS NOT RUNNING <<." \
 			"${temp_dir}/warnings/display_manager_${display_manager_name}_is_NOT_running" \
 			"You need to check your journalctl to understand why your display-manager is down. You can find more about display managers here:" \
 			"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
@@ -715,7 +715,7 @@ checkDisplayManager()
 		then
 			reportMessage \
 			"info" \
-			"Status: ${display_manager_name} >>> IS RUNNING <<<." \
+			"Status: ${display_manager_name} >> IS RUNNING <<." \
 			"null" \
 			"null" \
 			"null"
@@ -723,7 +723,7 @@ checkDisplayManager()
         else
 			reportMessage \
 			"critical" \
-			"Status: ${display_manager_name} >>> IS NOT RUNNING <<<." \
+			"Status: ${display_manager_name} >> IS NOT RUNNING <<." \
 			"null" \
 			"You need to check your /var/log/messages or /var/log/dmesg to understand why your display-manager is down. You can find more about display managers here:" \
 			"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
@@ -753,7 +753,7 @@ lookForDmIssues()
 			"critical" \
 			"Found some DISPLAY MANAGER issue that are causing issues with DCV." \
 			"${warning_dir}/${display_manager_name}_dcv_errors" \
-			"Please check your >>> $display_manager_name <<< DISPLAY MANAGER logs to understand why DCV process is being affected." \
+			"Please check your >> $display_manager_name << DISPLAY MANAGER logs to understand why DCV process is being affected." \
 			"null"
 		fi
 	fi
@@ -891,7 +891,7 @@ getDcvMemoryConfig()
 	else
         reportMessage \
         "critical" \
-        ">>> dcv <<< binary was not found tine the PATH >>> $PATH <<<." \
+        ">> dcv << binary was not found tine the PATH >> $PATH <<." \
         "${temp_dir}/warnings/dcv_binary_not_found" \
         "Please check if DCV server was correctly installed and if is your PATH variable. The script can not execute dcv commands." \
 		"null"
@@ -938,21 +938,21 @@ getDcvData()
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
 		echo -e "${RED}Found RLM PERMISSION ISSUES...${NC}" | tee -a $dcv_report_path
-        echo ">>> RLM Initialization failed: permission denied <<< message found in server.log files" | tee -a ${temp_dir}/warnings/rlm_failed_permission_denied $dcv_report_path
+        echo ">> RLM Initialization failed: permission denied << message found in server.log files" | tee -a ${temp_dir}/warnings/rlm_failed_permission_denied $dcv_report_path
     fi
 
     echo "Checking for client access denied events..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
     then
 		echo -e "${RED}Found CLIENT WILL NOT BE ALLOWED TO CONNECT...${NC}" | tee -a $dcv_report_path
-        echo ">>> client will not be allowed to connect <<< message found in server.log files" | tee -a ${temp_dir}/warnings/client_will_not_be_allowed_to_connect $dcv_report_path
+        echo ">> client will not be allowed to connect << message found in server.log files" | tee -a ${temp_dir}/warnings/client_will_not_be_allowed_to_connect $dcv_report_path
     fi
 
     echo "Checking for too many files warnings..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq ".*too many files open.*"
     then
 		echo -e "${RED}Found TOO MANY FILES OPEN...${NC}" | tee -a $dcv_report_path
-        echo ">>> too many files open <<< message found in server.log files" | tee -a ${temp_dir}/warnings/too_many_files_open
+        echo ">> too many files open << message found in server.log files" | tee -a ${temp_dir}/warnings/too_many_files_open
     fi
 
     echo "Checking if QUIC is being started..."
@@ -973,9 +973,9 @@ getDcvData()
     then
         if $temp_quic_enabled
         then
-            echo -e "${YELLOW}QUIC is ENABLED, but >>> quictransport <<< was never mentioned in server.log files.${NC}" | tee -a ${temp_dir}/warnings/quic_enabled_and_seems_never_used $dcv_report_path
+            echo -e "${YELLOW}QUIC is ENABLED, but >> quictransport << was never mentioned in server.log files.${NC}" | tee -a ${temp_dir}/warnings/quic_enabled_and_seems_never_used $dcv_report_path
         else
-            echo -e "${YELLOW}QUIC is DISABLED and >>> quictransport <<< was never mentioned in server.log files.${NC}" | tee -a ${temp_dir}/warnings/quic_disabled_and_seems_never_used $dcv_report_path
+            echo -e "${YELLOW}QUIC is DISABLED and >> quictransport << was never mentioned in server.log files.${NC}" | tee -a ${temp_dir}/warnings/quic_disabled_and_seems_never_used $dcv_report_path
         fi
     fi
 
@@ -1038,7 +1038,7 @@ EOF
         "critical" \
         "You have a license issue. Your current license does not support your current DCV session." \
         "${temp_dir}/warnings/dcv_license_version_failure" \
-        "Please contact the NISP support to check how this can be solved:" \
+        "Please contact the NISP support to check how this can be solved." \
 		"https://www.ni-sp.com/support/"		
 		
 		egrep -Ri "Failed checkout of product.*with version" ${target_dir}/* >> ${temp_dir}/warnings/dcv_license_version_failure
@@ -1091,7 +1091,7 @@ runDcvgldiag()
         if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
         then
             dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
-            echo "found >>> $dcvgldiag_errors_count <<< tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
+            echo "found >> $dcvgldiag_errors_count << tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
         fi
 
         if sudo lsmod | grep -iq "nouveau"
@@ -1116,10 +1116,10 @@ getNvidiaInfo()
     if command -v nvidia-smi > /dev/null 2>&1
     then
         timeout_seconds=20
-        echo "Executing nvidia-smi special query. The test will take up to >>> $timeout_seconds <<< seconds."
+        echo "Executing nvidia-smi special query. The test will take up to >> $timeout_seconds << seconds."
         timeout $timeout_seconds nvidia-smi --query-gpu=timestamp,name,pci.bus_id,driver_version,pstate,pcie.link.gen.max,pcie.link.gen.current,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv -l 5 -f ${target_dir}/nvidia_query > /dev/null 2>&1
 
-        echo "Executing nvidia-smi generic query. The test will take up to >>> $timeout_seconds <<< seconds." | tee -a $dcv_report_path
+        echo "Executing nvidia-smi generic query. The test will take up to >> $timeout_seconds << seconds." | tee -a $dcv_report_path
         timeout $timeout_seconds nvidia-smi 2>&1 | tee -a ${target_dir}/nvidia-smi_command $dcv_report_path
     fi
 }
@@ -1135,7 +1135,7 @@ getSystemdData()
 getOsData()
 {
     echo "Collecting all Operating System relevant data..." | tee -a $dcv_report_path
-    target_dir="${temp_dir}/os_info/"
+    target_dir="${temp_dir}/os_data/"
     sudo uname -a > $target_dir/uname_-a
 
     if command -v lsb_release > /dev/null 2>&1
@@ -1183,6 +1183,7 @@ getOsData()
     then
         sudo rpm -qa > ${target_dir}/rpm_packages_list 2>&1
     fi
+
     if command_exists uptime
 	then
     	uptime > ${target_dir}/uptime 2>&1
@@ -1504,7 +1505,7 @@ getSmartWarnings()
 		"critical" \
 		"$disk_name - SMART Error Log has $error_count entries" \
 		"$smart_disk_warnings" \
-		"You need to run >>> smartctl -l error <<< and check all entries. There is a chance that your storage hardware is about to fail." \
+		"You need to run >> smartctl -l error << and check all entries. There is a chance that your storage hardware is about to fail." \
 		"null"
     fi
     
@@ -1538,11 +1539,11 @@ getXorgData()
     then
 		reportMessage \
 		"warning" \
-		"DISPLAY var content: >>> $DISPLAY <<<" \
+		"DISPLAY var content: >> $DISPLAY <<" \
 		"${target_dir}/display_content_var ${temp_dir}/warnings/display_var_is_empty" \
 		"The DISPLAY var is empty. Is normal if you executed this script outside of GUI session." \
 		"null"
-        echo "The user executing is >>> $USER <<<" >> ${temp_dir}/warnings/display_var_is_empty 2>&1
+        echo "The user executing is >> $USER <<" >> ${temp_dir}/warnings/display_var_is_empty 2>&1
     fi
 
     if [ -d /etc/X11 ]
@@ -1558,9 +1559,9 @@ getXorgData()
 
 		reportMessage \
 		"warning" \
-		"/usr/share/X11 was found, but usually is expected /etc/X11. Check the last Xorg.log to identify which one is being used." \
+		"/usr/share/X11 was found, but usually is expected /etc/X11." \
 		"${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11" \
-		"You need to check xorg.conf.d of both directories (/etc/X11 and /usr/share/X11) and look for configuration files that can enter in conflict with yout environment. For example: radeon drivers being loaded with nvidia driver. We recommend to backup and remove all xorg.conf.d/* files and leave just the ones that you really need. Also, check your /var/log/Xorg.log* files to verify which directories are being loaded and which xorg.conf file is being used." \
+		"You need to check xorg.conf.d of both directories (/etc/X11 and /usr/share/X11) and look for configuration files that can enter in conflict with yout environment. For example: radeon drivers being loaded with nvidia driver. We recommend to backup and remove all xorg.conf.d/* files and leave just the ones that you really need. Also, check your /var/log/Xorg.log* files to verify which directories are being loaded and which xorg.conf file is being used. Sometimes both xorg.conf.d are being loaded, causing issues to your X server." \
 		"null"
     fi
 
@@ -1568,7 +1569,7 @@ getXorgData()
     then
 		reportMessage \
 		"warning" \
-		"A nvidia config file was found in >>> /etc/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." \
+		"A nvidia config file was found in >> /etc/X11/xorg.conf.d/*nvidia* <<. It can cause issues in xorg.conf config file." \
 		"${temp_dir}/warnings/nvidia_xorgconf_possible_override" \
 		"Check if you really need the additional nvidia configuration files found in /etc/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file." \
 		"null"
@@ -1578,7 +1579,7 @@ getXorgData()
     then
 		reportMessage \
 		"warning" \
-		"A nvidia config file was found in >>> /usr/share/X11/xorg.conf.d/*nvidia* <<<. It can cause issues in xorg.conf config file." \
+		"A nvidia config file was found in >> /usr/share/X11/xorg.conf.d/*nvidia* <<. It can cause issues in xorg.conf config file." \
 		"${temp_dir}/warnings/nvidia_xorgconf_possible_override" \
 		"Check if you really need the additional nvidia configuration files found in /usr/share/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file." \
 		"null"
@@ -1620,7 +1621,7 @@ getXorgData()
             echo "X is currently running. Cannot execute X -configure." | tee -a ${temp_dir}/warnings/X_--configure_failed $dcv_report_path
         else
             timeout_seconds=10
-            echo "Executing X -configure query. The test will take up to >>> $timeout_seconds <<< seconds" | tee -a $dcv_report_path
+            echo "Executing X -configure query. The test will take up to >> $timeout_seconds << seconds" | tee -a $dcv_report_path
 			sudo timeout $timeout_seconds X -configure 2> >(tee -a "${target_dir}/xorg.conf.configure.stderr" $dcv_report_path > /dev/null) | tee -a "${target_dir}/xorg.conf.configure.stdout $dcv_report_path" > /dev/null
         fi
     else
@@ -1638,14 +1639,14 @@ getXorgData()
     then
 		reportMessage \
 		"critical" \
-		"Wayland >>> IS <<< RUNNING!" \
+		"Wayland >> IS << RUNNING!" \
 		"${temp_dir}/warnings/wayland_is_running" \
 		"You need to run DCV Server with X11 backend. Wayland is not supported yet and will cause issues under DCV Service. The DCV Viewer supports Wayland since 2024.0-17979 version." \
 		"null"
 	else
 		reportMessage \
 		"info" \
-		"Wayland >>> IS NOT <<< RUNNING!" \
+		"Wayland >> IS NOT << RUNNING!" \
 		"${temp_dir}/warnings/wayland_is_not_running" \
 		"Wayland is already supported for DCV Viewer, but not DCV Server. The support is under the roadmap and you can check any news here:" \
 		"https://docs.aws.amazon.com/dcv/latest/adminguide/doc-history-release-notes.html"
@@ -1678,6 +1679,30 @@ getXorgData()
             fi
         fi
     fi
+
+	if egrep -Riq "Permission denied" ${target_dir}/*
+	then
+		reportMessage \
+		"critical" \
+		"Found permission denied errors in Xorg log." \
+		"${temp_dir}/warnings/xorg_permission_denied" \
+		"Please check the permissions errors found in your Xorg logs. If you are having permission video driver issues you probably will get performance problems or graphical issues with GNOME and Xorg." \
+		"null"
+
+		egrep -Riq "Permission denied" ${target_dir}/* >> ${temp_dir}/warnings/xorg_permission_denied
+	fi
+
+	if egrep -Riq "Unable to get display device" ${target_dir}/*
+	then
+		reportMessage \
+		"warning" \
+		"Graphics driver couldn't detect or communicate with a display device to determine the proper DPI." \
+		"${temp_dir}/warnings/gpu_driver_unable_get_display_device" \
+		"You need to investigate why your GPU driver can not get the Display device data. (1) Usually if you are using the Xorg option UseDisplayDevice set as None, or (3) the server has physical connection issues, you will get this issue. (3) Permissions drivers problems can also cause the issue." \
+		"null"
+
+		egrep -Riq "Unable to get display device" >> ${temp_dir}/warnings/gpu_driver_unable_get_display_device
+	fi
 }
 
 checkDcvManagementLinux()
@@ -1700,7 +1725,7 @@ checkDcvManagementLinux()
 
 		reportMessage \
       	"info" \
-       	"DCV Management Linux service is >>> $dcv_managament_text1 <<< and >>> $dcv_managament_text2 <<<." \
+       	"DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
         "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
         "null" \
 		"null"
@@ -1804,14 +1829,14 @@ checkNetwork()
 	then
 		reportMessage \
 		"info" \
-		"DNS resolution >>> IS WORKING <<<." \
+		"DNS resolution >> IS WORKING <<." \
 		"${target_dir}/dns_is_working" \
 		"DNS is important to validate your DCV license and to reach your RLM server, if you are using one." \
 		"null"
 	else
 		reportMessage \
 		"critical" \
-		"DNS resolution >>> IS NOT WORKING <<<." \
+		"DNS resolution >> IS NOT WORKING <<." \
 		"${target_dir}/dns_is_NOT_working ${temp_dir}/warnings/dns_is_NOT_working" \
 		"You need to check your DHCP server and your /etc/resolv.conf to understand why your server can not solve DNS." \
 		"null"
