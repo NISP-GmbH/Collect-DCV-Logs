@@ -87,7 +87,7 @@ doHtmlReport()
     <header>
         <h1>NISP DCV Server Report</h1>
         <div class="support-info">
-            <p>If you need help:</p>
+            <p>If you need support:</p>
 			<p> <a href="https://www.ni-sp.com/support/" target="_blank">https://www.ni-sp.com/support/</a></p>
         </div>
     </header>
@@ -131,7 +131,6 @@ reportMessage()
 
 	reportMessageWrite "${message_text}" "${log_file}" "${message_type}" "${message_suggestion}" "${recommended_links}"
 	reportMessageWriteHtml "${message_text}" "null" "${message_type}" "${message_suggestion}" "${recommended_links}"
-
 }
 
 reportMessageWriteHtml()
@@ -349,11 +348,11 @@ checkLinuxDistro()
 
 setupUsefulTools()
 {
-    if ! command -v smartctl &> /dev/null
+    if ! command_exists smartctl
     then
         if $ubuntu_distro
         then
-            if command -v apt-get &> /dev/null
+            if command_exists apt-get
             then
                 sudo apt-get update
                 sudo apt-get install -y smartmontools
@@ -362,12 +361,12 @@ setupUsefulTools()
 
         if $redhat_distro_based
         then
-            if command -v dnf &> /dev/null
+            if command_exists dnf
             then
-                dnf install -y smartmontools
-            elif command -v yum &> /dev/null
+                sudo dnf install -y smartmontools
+            elif command_exists yum
             then
-                yum install -y smartmontools
+                sudo yum install -y smartmontools
             fi
         fi
     fi
@@ -512,8 +511,20 @@ checkPackagesVersions()
 	    if cat ${target_dir}/packages_might_not_os_compatible | egrep -iq dcv
 	    then
 	    	dcv_packages_not_compatible=$(cat ${target_dir}/packages_might_not_os_compatible | egrep -i dcv)
-	        echo "Found some DCV packages not compatible:" | tee -a ${target_dir}/dcv_packages_not_os_compatible $dcv_report_path
+			reportMessage \
+			"critical" \
+			"Found some DCV packages not compatible." \
+			"${target_dir}/dcv_packages_not_os_compatible" \
+			"You need to setup the right DCV packages for your Linux distribution." \
+			"null" 
 	        echo $dcv_packages_not_compatible | tee -a ${target_dir}/dcv_packages_not_os_compatible $dcv_report_path
+		else
+			reportMessage \
+			"info" \
+			"DCV packages versions are compatible with current Linux distribution." \
+			"null" \
+			"null" \
+			"null"
 	    fi
 	fi
 
@@ -674,7 +685,7 @@ checkDisplayManager()
 		fi
 	fi
 
-    if command -v systemctl >/dev/null 2>&1
+    if command_exists systemctl
 	then
         if systemctl is-active --quiet "${display_manager_name}.service"
 		then
@@ -740,6 +751,13 @@ lookForDmIssues()
 			"Please check your >> $display_manager_name << DISPLAY MANAGER logs to understand why DCV process is being affected." \
 			"null"
 		fi
+	else
+		reportMessage \
+		"info" \
+		"No relevant error found in hte log ${log_dir_to_look}." \
+		"null" \
+		"null" \
+		"null"
 	fi
 }
 
@@ -809,21 +827,21 @@ getHwData()
     echo "Collecting all Hardware relevant info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/hardware_info/"
 
-    if command -v lshw > /dev/null 2>&1
+    if command_exists lshw > /dev/null
     then
         sudo lshw > ${target_dir}/lshw_hardware_info.txt
     else
         echo "lshw not found" > ${target_dir}/not_found_lshw
     fi
 
-    if command -v lscpu > /dev/null 2>&1
+    if command_exists lscpu
     then
         sudo lscpu  > ${target_dir}/lscpu_hardware_info.txt
     else
         echo "lscpu not found" > ${target_dir}/not_found_lscpu
     fi
 
-    if command -v dmidecode > /dev/null 2>&1
+    if command_exists dmidecode
     then
         sudo dmidecode > ${target_dir}/dmidecode 2>&1
     else
@@ -908,35 +926,163 @@ getDcvData()
     echo "Checking for signal 11 events..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/*.log.* | egrep -iq "killed by signal 11"
     then
-        echo -e "${RED}Found DCV process being killed with signal 11 (segmentation fault)${NC}" | tee -a ${temp_dir}/warnings/dcv_logs_kill_signal_11_found $dcv_report_path
+		reportMessage \
+		"critical" \
+		"Found DCV process being killed with signal 11 (segmentation fault)" \
+		"${temp_dir}/warnings/dcv_logs_kill_signal_11_found" \
+		"$dcv_report_text_about_segfault" \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
+	else
+		reportMessage \
+		"info" \
+		"Did not find signal 11 events (segmentation fault) for DCV." \
+		"null" \
+		"null" \
+		"null"
     fi
 
+	if egrep -Riq "(invalid-session-id|unknown session)" ${target_dir}/*
+	then
+		reportMessage \
+		"critical" \
+		"Found invalid or unknown session id issue." \
+		"${temp_dir}/warnings/dcv_invalid_session_id" \
+		"You need to check the server.log to identify the root cause of the invalid/unknown session id. The usually causes are (1) License issues (2) Session creatuion timeouts (3) Invalid session id from the client." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find invalid session id messages." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if egrep -Riq "Communications error with license server" ${target_dir}/*
+	then
+		reportMessage \
+		"critical" \
+		"Found network issue to DCV Server talk with your license server." \
+		"${temp_dir}/warnings/dcv_network_issue_with_license_server" \
+		"Please check if (1) your license server service is running and (2) if there is no firewall blocking the communication. The server.log suggests that DCV Server is not able to communicate with your license server." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find issue with license server." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if egrep -Riq "Could not create.*session" ${target_dir}/*
+	then
+		reportMessage \
+		"critical" \
+		"Found issue to create a session." \
+		"${temp_dir}/warnings/dcv_could_not_create_session" \
+		"The session creation is failing. You need to check the root cause in the server.log file. The common causes are (1) License issue (limits, license server offline or not valid license) (2) Session with ID already being used (3) SELINUX blocking the session creation." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find issue to request the session creation." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if egrep -Riq "Could not acquire dcv licenses" ${target_dir}/*
+	then
+		reportMessage \
+		"critical" \
+		"DCV Server can not get the license." \
+		"${temp_dir}/warnings/dcv_server_can_not_acquire_dcv_licenses" \
+		"You need to check the server.log why the license can not be imported. The common causes are (1) License server offline (2) License permission issue (3) License file missing." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find issue with dcv license import." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
     echo "Checking for not authorized channels events..." | tee -a $dcv_report_path
-    if cat ${target_dir}/dcv/server* | egrep -iq ".*not authorized in any channel.*"
+    if egrep -Riq ".*not authorized in any channel.*" ${target_dir}/*
     then
-		echo -e "${RED}Found NOT AUTHORIZED EVENT IN ANY CHANNEL.${NC}" | tee -a $dcv_report_path
+		reportMessage \
+		"critical" \
+
+		"Found NOT AUTHORIZED EVENT IN ANY CHANNEL." \
+		"${temp_dir}/warnings/possible_owner_session_issue" \
+		"There are users that can not enter in a session due not enough permissions." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/authentication/#h-login-not-working-due-not-authorized-in-any-channel"
         cat ${target_dir}/dcv/server* | egrep -i ".*not authorized in any channel.*" | tee -a ${temp_dir}/warnings/possible_owner_session_issue $dcv_report_path
+	else
+		reportMessage \
+		"info" \
+		"Did not find not authorized channel events." \
+		"null" \
+		"null" \
+		"null"
     fi
     
     echo "Checking for RLM permission issues..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
     then
-		echo -e "${RED}Found RLM PERMISSION ISSUES...${NC}" | tee -a $dcv_report_path
+		reportMessage \
+		"critical" \
+		"Found RLM PERMISSION ISSUES..." \
+		"${temp_dir}/warnings/rlm_failed_permission_denied" \
+		"You need to fix the RLM permissions." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/nice-dcv-licensing/#h-installing-the-rlm-license-server"
+
         echo ">> RLM Initialization failed: permission denied << message found in server.log files" | tee -a ${temp_dir}/warnings/rlm_failed_permission_denied $dcv_report_path
+	else
+		reportMessage \
+		"info" \
+		"Did not find RLM permission issues." \
+		"null" \
+		"null" \
+		"null"
     fi
 
     echo "Checking for client access denied events..." | tee -a $dcv_report_path
     if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
     then
-		echo -e "${RED}Found CLIENT WILL NOT BE ALLOWED TO CONNECT...${NC}" | tee -a $dcv_report_path
-        echo ">> client will not be allowed to connect << message found in server.log files" | tee -a ${temp_dir}/warnings/client_will_not_be_allowed_to_connect $dcv_report_path
+		reportMessage \
+		"critical" \
+		"Found CLIENT WILL NOT BE ALLOWED TO CONNECT." \
+		"${temp_dir}/warnings/client_will_not_be_allowed_to_connect" \
+		"You need to check your server.log to identify the root cause." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/authentication/#h-login-not-working-due-not-authorized-in-any-channel"
+	else
+		reportMessage \
+		"info" \
+		"Did not find client access denied events." \
+		"null" \
+		"null" \
+		"null"
     fi
 
     echo "Checking for too many files warnings..." | tee -a $dcv_report_path
-    if cat ${target_dir}/dcv/server* | egrep -iq ".*too many files open.*"
+    if egrep -iq ".*too many files open.*" ${target_dir}/dcv/server*
     then
-		echo -e "${RED}Found TOO MANY FILES OPEN...${NC}" | tee -a $dcv_report_path
-        echo ">> too many files open << message found in server.log files" | tee -a ${temp_dir}/warnings/too_many_files_open
+		reportMessage \
+		"critical" \
+		"Found too many files open error." \
+		"${temp_dir}/warnings/too_many_open_files_error" \
+		"You need to check if DCV reached your Linux security limits or if you are having some filesystem issue that is blocking DCV service to close the file descriptors. Please check your server.log* files." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find too many files open error messages." \
+		"null" \
+		"null" \
+		"null"
     fi
 
     echo "Checking if QUIC is being started..."
@@ -946,10 +1092,21 @@ getDcvData()
     fi
 
     echo "Checking for license and network related events..." | tee -a $dcv_report_path
-    if cat ${target_dir}/dcv/server* | egrep -iq "bad.*hostname.*license"
+    if egrep -iq "bad.*hostname.*license" ${target_dir}/dcv/server* 
     then
-		echo -e "${RED}Found BAD HOSTNAME LICENSE...${NC}" | tee -a $dcv_report_path
-        echo "Found issue to resolve server hostname for license service" | tee -a ${temp_dir}/warnings/bad_server_hostname_in_license_issue $dcv_report_path
+		reportMessage \
+		"critical" \
+		"Found BAD HOSTNAME LICENSE." \
+		"${temp_dir}/warnings/bad_server_hostname_in_license_issue" \
+		"Check your server.log file" \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Your hostname license is correct." \
+		"null" \
+		"null" \
+		"null"
     fi
 
 	echo "Checking relevant info about QUIC..." | tee -a $dcv_report_path
@@ -964,68 +1121,90 @@ getDcvData()
     fi
 
     echo "Checking for old DCV Viewer versions..." | tee -a $dcv_report_path
-    if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" 
+    if egrep -iq "DCV Viewer.*202[23]" ${target_dir}/dcv/agent*
     then
-		echo -e "${YELLOW}Found DCV Viewer 2022 connecting.${NC}" | tee -a $dcv_report_path
-        cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2022" >> ${temp_dir}/warnings/found_dcv_viewer_2022
-    fi
-
-    if cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2023"
-    then
-		echo -e "${YELLOW}Found DCV Viewer 2023 connecting.${NC}" | tee -a $dcv_report_path
-        cat ${target_dir}/dcv/agent* | egrep -iq "DCV Viewer.*2023" >> ${temp_dir}/warnings/found_dcv_viewer_2023
+		reportMessage \
+		"warning" \
+		"Found DCV Viewer 2022 or 2023 versions." \
+		"${temp_dir}/warnings/found_dcv_viewer_2022_2023" \
+		"We recommend to use DCV Viewer 2024 version, even if your server is not using the 2024 version." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find too old DCV Viewer clients connecting." \
+		"null" \
+		"null" \
+		"null"
     fi
 
 	echo "Checking for DCV license issues..." | tee -a $dcv_report_path
     if [ -f /var/log/dcv/server.log ]
     then
-        if cat /var/log/dcv/server.log | egrep -iq "No license for product"
+        if egrep -iq "No license for product" /var/log/dcv/server.log
         then
-            echo -e "${RED}No license for product${NC}" > ${temp_dir}/warnings/dcv_not_found_valid_license
+			reportMessage \
+			"critical" \
+			"No license for product found." \
+			"${temp_dir}/warnings/dcv_not_found_valid_license" \
+			"You need to set correctly your license to allow DCV resources." \
+			"https://www.ni-sp.com/knowledge-base/dcv-general/nice-dcv-licensing/"
+		else
+			reportMessage \
+			"info" \
+			"License is configured." \
+			"null" \
+			"null" \
+			"null"
         fi
     fi
 
 	echo "Checking /etc/dcv/dcv.conf file..." | tee -a $dcv_report_path
-    if [ -f /etc/dcv/dcv.conf ]
+
+    if sudo dcv get-config --all | egrep -i "no-tls-strict" | egrep -iq "false"
     then
-        if ! head -n 5 /var/log/dcv/server.log | grep -iq "Starting DCV server version 2024"
-        then
-            if ! cat /etc/dcv/dcv.conf | egrep -iq "^no-tls-strict.*=.*true"
-            then
-				echo -e "${YELLOW}no-tls-script is false!${NC}" | tee -a $dcv_report_path
-                cat <<EOF >> ${temp_dir}/warnings/dcv_server_no-tls-strict_is_false
-- no-tls-strict is not true"
+		reportMessage \
+		"warning" \
+		"no-tls-strict is false!" \
+		"${temp_dir}/warnings/dcv_server_no-tls-strict_is_false" \
+		"If your certificate expire, you can ignore and avoid issues. Expired certificate does not mean that you have a security issue. You can set no-tls-strict=true under [security] section of dcv.conf file." \
+		"null"
+    fi
 
-please add:
-[security]
-no-tls-strict=true
-EOF
-            fi
-
-            if ! cat /etc/dcv/dcv.conf | egrep -iq "^enable-quic-frontend.*=.*true"
-            then
-				echo -e "${YELLOW}QUIC protocol is not enabled!${NC}" | tee -a $dcv_report_path
-                cat << EOF >> ${temp_dir}/warnings/dcv_server_quic_not_enabled
-- quic protocol is not enabled
-- please add:
-[connectivity]
-enable-quic-frontend=true
-enable-datagrams-display = always-off
-EOF
-            fi
-        fi
+	if sudo dcv get-config --all | egrep -i "enable-quic-frontend" | egrep -iq "false"
+	then
+		reportMessage \
+		"critical" \
+		"QUIC/UDP protocol is not enabled!" \
+		"${temp_dir}/warnings/dcv_server_quic_not_enabled" \
+		"QUIC/UDP can provide a much better experience if you have high latency and frequent packetloss. You can enable the QUIC/UDP protocol under [connectivity] section of the file dcv.conf with these parameters: enable-quic-frontend=true and enable-datagrams-display = always-off, in different lines." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-how-to-enable-the-udp-based-quic-transport-protocol-in-dcv"
+	else
+		reportMessage \
+		"info" \
+		"QUIC/UDP is being listened." \
+		"null" \
+		"null" \
+		"null"
     fi
 
 	if egrep -Riq "Failed checkout of product.*with version" ${target_dir}/* > /dev/null 2>&1
 	then
         reportMessage \
         "critical" \
-        "You have a license issue. Your current license does not support your current DCV session." \
+        "You have a license issue. Your current license is expired or does not support your current DCV version." \
         "${temp_dir}/warnings/dcv_license_version_failure" \
         "Please contact the NISP support to check how this can be solved." \
 		"https://www.ni-sp.com/support/"		
 		
 		egrep -Ri "Failed checkout of product.*with version" ${target_dir}/* >> ${temp_dir}/warnings/dcv_license_version_failure
+	else
+		reportMessage \
+		"info" \
+		"Your license supports your DCV Server version." \
+		"null" \
+		"null" \
+		"null"
 	fi
 
 	if egrep -Riq "There was a problem stopping the session" ${target_dir}/* > /dev/null 2>&1
@@ -1038,6 +1217,76 @@ EOF
 		"https://www.ni-sp.com/support/"		
 
 		egrep -Ri "There was a problem stopping the session" ${target_dir}/* > ${temp_dir}/warnings/dcv_server_can_not_close_session
+	else
+		reportMessage \
+		"info" \
+		"Did not find issues stopping the sessions." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	log_files=$(find -iname "agent.*.log*" 2>/dev/null)
+	for log_file in $log_files
+	do
+	    drop_rate_count=$(grep -c "drop_rate" "$log_file" 2>/dev/null)
+    
+		count_drop_rate_cases=0
+    	if [ "$drop_rate_count" -gt 80 ]
+		then
+			count_drop_rate_cases=$((count_drop_rate_cases + 1))
+			user_drop_rate=$(echo $log_file | cut -d"." -f3)
+        	reportMessage \
+			"warning" \
+			"Found >> $drop_rate_count << drop_rate messages from the user >> $user_drop_rate <<." \
+			"${temp_dir}/warnings/drop_rate_messages_${user_drop_rate}" \
+			"The drop_rates messages are about DCV trying to keep high image quality, high frame rate and best responsiveness without use too much bandwidth, but if the encoder process is slow or your link is oscilating too much the performance or has limited bandwidth capacity, you will see a lot of drop_rate messages. Is normal to see them in the log, but if they persist for long periods or are being printed with some frequency, then you need to investigate your server and network performance." \
+			"https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-drop-rate-messages https://www.ni-sp.com/knowledge-base/dcv-general/tips-and-tricks-linux/#h-testing-your-network-bandwidth-and-packet-losses https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-dcv-high-bandwidth-usage-and-stuttering"
+    	fi
+	done
+
+	if [ $count_drop_rate_cases -eq 0 ]
+	then
+		reportMessage \
+		"info" \
+		"Did not find relevant drop rate cases." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if egrep -Riq "No frame ack from the client.*, video streaming is blocked for channel" ${target_dir}/*
+	then
+		reportMessage \
+		"warning" \
+		"Video streaming was blocked due no frame ack from the client." \
+		"${temp_dir}/warnings/no_frame_ack_from_the_client_video_streaming_blocked" \
+		"This happens when you are having issues with saturated encoding process or network resources limitations. You need to check if users are having DCV black screen or stuttering." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-drop-rate-messages https://www.ni-sp.com/knowledge-base/dcv-general/tips-and-tricks-linux/#h-testing-your-network-bandwidth-and-packet-losses https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-dcv-high-bandwidth-usage-and-stuttering"
+	else
+		reportMessage \
+		"info" \
+		"No frame ack issues found." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if egrep -Riq "No protocol specified" ${target_dir}/*
+	then
+		reportMessage \
+		"critical" \
+		"Found permission issue when DCV tried to access X server." \
+		"${temp_dir}/warnings/dcv_without_x_grant_permission" \
+		"If DCV can not access the X server service, it can not share the session with the DCV client. You need to identify what is wrong with your X environment that is not making possivle to dcvxgrantaccess, a xhost wrapper, to add DCV permissions. If you removed some DCV files from your display manager, or customized in a wrong way, you probably need to reinstall DCV server to get the additional code again." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/sessions/#h-could-not-create-a-session-due-no-protocol-specified" \
+	else
+		reportMessage \
+		"info" \
+		"No issues with X and DCV agent permissions." \
+		"null" \
+		"null" \
+		"null"
 	fi
 }
 
@@ -1045,7 +1294,7 @@ runDcvgldiag()
 {
     target_dir="${temp_dir}/dcvgldiag/"
 
-    if command -v dcvgldiag > /dev/null 2>&1
+    if command_exists dcvgldiag
     then
 		echo "" >> $dcv_report_path
 		echo "Executing dcvgldiag test..." | tee -a $dcv_report_path
@@ -1080,16 +1329,27 @@ runDcvgldiag()
 
         if sudo lsmod | grep -iq "nouveau"
         then
-            echo "Detected nouveau kernel module" > ${temp_dir}/warnings/nouveau_kernel_module_found
 			reportMessage \
 			"critical" \
 			"Found nouveau driver loaded." \
 			"${temp_dir}/warnings/nouveau_kernel_module_found" \
 			"You need to block the opensource nouveau driver, otherwise the nvidia module will not be loaded." \
 			"https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-how-to-block-nouveau-driver"
+		else
+			reportMessage \
+			"info" \
+			"Did not find nouveau driver loaded." \
+			"null" \
+			"null" \
+			"null"
         fi
     else
-        echo "dcvgldiag not installed" > ${temp_dir}/warnings/dcvgldiag_not_installed
+		reportMessage \
+		"warning" \
+		"dcvgldiag not installed" \
+		"${temp_dir}/warnings/dcvgldiag_not_installed" \
+		"This is a important tool from DCV Team that checks most common Xorg issues that can cause DCV bad performance or problems. You can get the dcvgldiag tool from the DCV Server package." \
+		"https://www.ni-sp.com/dcv-download/"
     fi
 }
 
@@ -1097,7 +1357,7 @@ getNvidiaInfo()
 {
 	echo "Getting nvidia-smi info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/nvidia_info/"
-    if command -v nvidia-smi > /dev/null 2>&1
+    if command_exists nvidia-smi
     then
         timeout_seconds=20
         echo "Executing nvidia-smi special query. The test will take up to >> $timeout_seconds << seconds."
@@ -1106,6 +1366,31 @@ getNvidiaInfo()
         echo "Executing nvidia-smi generic query. The test will take up to >> $timeout_seconds << seconds." | tee -a $dcv_report_path
         timeout $timeout_seconds nvidia-smi 2>&1 | tee -a ${target_dir}/nvidia-smi_command $dcv_report_path
     fi
+
+	if sudo systemctl list-unit-files | grep -q nvidia-persistenced
+	then
+		if sudo systemctl is-enabled --quiet nvidia-persistenced
+		then
+			if sudo systemctl is-active --quiet nvidia-persistenced
+			then
+				reportmessage \
+				"info" \
+				"nvidia-persistenced is >> RUNNING <<." \
+				"null" \
+				"null" \
+				"null"
+			else
+				reportmessage \
+				"warning" \
+				"nvidia-persistenced systemd service is >> NOT RUNNING <<." \
+				"${temp_dir}/warnings/nvidia_persistenced_not_running" \
+				"Ideally the nvidia-persistenced must be enabled and running, unless if you have special reasons to not have this service enabled." \
+				"https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-nvidia-persistenced-is-not-running"
+			fi
+		fi
+		
+		sudo journalctl -u nvidia-persistenced  >> ${target_dir}/nvidia_persistenced_log
+	fi
 }
 
 getSystemdData()
@@ -1122,14 +1407,19 @@ getOsData()
     target_dir="${temp_dir}/os_data/"
     sudo uname -a > $target_dir/uname_-a
 
-    if command -v lsb_release > /dev/null 2>&1
+	if command_exists lsmod
+	then
+		sudo lsmod >> $target_dir/lsmod
+	fi
+
+    if command_exists lsb_release
     then
         sudo lsb_release -a > $target_dir/lsb_release_-a 2>&1
     else
         echo "lsb_release not found" > $target_dir/not_found_lsb_release
     fi
 
-    if command -v getenforce > /dev/null 2>&1
+    if command_exists getenforce
     then
         sudo getenforce > $target_dir/getenforce_result 2>&1
         if cat $target_dir/getenforce_result | egrep -iq "enforcing"
@@ -1172,6 +1462,16 @@ getOsData()
 	then
     	uptime > ${target_dir}/uptime 2>&1
 	fi
+
+    if [ -d /etc/modules-load.d/ ]
+    then
+        sudo cp -R /etc/modules* ${target_dir}/
+    fi
+
+    if [ -d /etc/modprobe.d/ ]
+    then
+        sudo cp -R /etc/modprobe* ${target_dir}/
+    fi
 
     ps aux --forest > ${target_dir}/ps_aux_--forest 2>&1
     pstree -p > ${target_dir}/pstree 2>&1
@@ -1225,8 +1525,21 @@ getOsData()
     then
         if cat $target_dir/messages | egrep -iq "oom" > /dev/null 2>&1
         then
-			echo -e "${YELLOW}Possible OOM Killer events found... please check your /var/log/messages files.${NC}" | tee -a $dcv_report_path
+			reportMessage \
+			"critical" \
+			"Possible OOM Killer events found!" \
+			"${temp_dir}/warnings/possible_oom_killer_log_found_messages" \
+			"You need to check the cause of OOM Killer action and check if it is affecting DCV and related services (X, display manager, session manager etc)." \
+			"null"
+
             cat $target_dir/messages | egrep -i "(oom|killed|killer)" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_messages > /dev/null
+		else
+			reportMessage \
+			"info" \
+			"Did not find OOM Killer events." \
+			"null" \
+			"null" \
+			"null"
         fi
 
         echo "Checking for SELinux logs... if you have big log files, please wait for a moment..." | tee -a $dcv_report_path
@@ -1243,6 +1556,13 @@ getOsData()
 			"Found SELINUX preventing DCV service to work." \
 			"${temp_dir}/warnings/selinux_is_preventing_dcv" \
 			"Please review your /var/log/messages to identify which DCV service is being blocked by SELINUX." \
+			"null"
+		else
+			reportMessage \
+			"info" \
+			"Did not find SELINUX preventing DCV service to work." \
+			"null" \
+			"null" \
 			"null"
 		fi
     fi
@@ -1282,6 +1602,13 @@ getOsData()
 			"null"
 		fi
 
+	else
+		reportMessage \
+		"info" \
+		"Did not find segmentation fault events." \
+		"null" \
+		"null" \
+		"null"
     fi
 
 	if egrep -Riq "Could not get tablet information for 'Xdcv eraser'" ${target_dir}/*
@@ -1293,18 +1620,32 @@ getOsData()
         "${temp_dir}/warnings/Xdcv_errors" \
         "Found and issue between gnome-shell and Xdcv. Please check if you are using X11, not Wayland, and if you have a complete GNOME environment installed." \
 		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find Xdcv eraser issues events." \
+		"null" \
+		"null" \
+		"null"
 	fi
 
-	if egrep -Riq "gnome-terminal-server.*Fatal IO error" ${target_dir}/*
+	if egrep -Riq "gnome-.*Fatal IO error" ${target_dir}/*
 	then
 		reportMessage \
         "critical" \
-        "Identified Fatal IO error with gnome-terminal-server." \
+        "Identified Fatal IO error with gnome component." \
         "${temp_dir}/warnings/gnome_fatal_io_error" \
         "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors." \
 		"null"
 		
 		egrep -Ri "gnome-terminal-server.*Fatal IO error" >> ${temp_dir}/warnings/gnome_fatal_io_error
+	else
+		reportMessage \
+		"info" \
+		"Did not find GNOME IO error events." \
+		"null" \
+		"null" \
+		"null"
 	fi
 
 	if egrep -Riq "BAR.*failed to assign" ${target_dir}/*
@@ -1316,6 +1657,13 @@ getOsData()
         "BAR stands for Base Address Register, which is a mechanism used by PCI devices to request memory or I/O space from the system. These errors typically occur when: (A) The system doesn't have enough I/O address space available to satisfy all PCI devices. (B) There might be conflicts between devices requesting the same resources. (C) The BIOS/UEFI didn't properly allocate or reserve the necessary resources. If you are using a virtualized environment with a lot of virtual devices, for example, is possible that your VM has not enough resources to support all devices, what can cause DCV issues, specially when GPU is being used. While these errors look concerning, they don't always cause functional problems. Many systems can still operate normally with some BAR allocation failures, as the kernel typically tries to work around these issues. " \
 		"null"
 		egrep -Ri "BAR.*failed to assign" >> ${temp_dir}/warnings/bar_failures_found
+
+		reportMessage \
+		"info" \
+		"Did not find Base Address Register (BAR) failure events." \
+		"null" \
+		"null" \
+		"null"
 	fi
 
 
@@ -1328,13 +1676,37 @@ getOsData()
         "The sideband socket is part of NVIDIA's driver communication system, used for exchanging information between different components of the graphics system. When this binding fails, it typically indicates: (A) A permission problem (the process doesn't have rights to access the socket). (B) The socket is already in use by another process. (C) The NVIDIA driver might be experiencing conflicts with other system components. You need to check if you have conflicting drivers." \
 		"null"
 
-		egrep -Ri "NVIDIA.*Failed to bind sideband socket" >> ${temp_dir}/nvidia_fail_to_bind
+		egrep -Ri "NVIDIA.*Failed to bind sideband socket" >> ${temp_dir}/warnings/nvidia_fail_to_bind
+	else
+		reportMessage \
+		"info" \
+		"Did not find bind sideband socket failures related with NVIDIA driver." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if egrep -Riq "Valid GRID license not found" ${temp_dir}/*
+	then
+		reportMessage \
+		"critical" \
+		"Valid GRID license not found" \
+		"${temp_dir}/warnings/nvidia_grid_license_not_found" \
+		"Your GPU card resources is being limited due no license installed. Please install the license to release all GPU resources." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-nvidia-limited-sessions-performance-after-some-sessions-created https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-valid-grid-license-not-found https://docs.nvidia.com/vgpu/15.0/grid-licensing-user-guide/index.html#configuring-nls-licensed-client"
+	else
+		reportMessage \
+		"info" \
+		"No NVIDIA grid license issue found." \
+		"null" \
+		"null" \
+		"null"
 	fi
 }
 
 getSmartInfo()
 {
-    if ! command -v smartctl &> /dev/null
+    if ! command_exists smartctl
     then
         return 1
     else
@@ -1415,6 +1787,13 @@ getSmartWarnings()
 		"$smart_disk_warnings" \
 		"Enable the S.M.A.R.T. in your storage devices." \
 		"null"
+	else
+		reportMessage \
+		"info" \
+		"SMART overall health check as completed with success with the storage device >> $disk_name <<." \
+		"null" \
+		"null" \
+		"null"
     fi
     
     # Check for reallocated sectors
@@ -1429,6 +1808,13 @@ getSmartWarnings()
 			"$disk_name - Reallocated sectors found: $value" \
 			"$smart_disk_warnings" \
 			"This indicates that your drive has detected bad sectors and has remapped them to spare sectors. This is an early warning sign of potential drive failure. Please check your drive." \
+			"null"
+		else
+			reportMessage \
+			"info" \
+			"Did not find reallocated sectors with the storage device >> $disk_name <<." \
+			"null" \
+			"null" \
 			"null"
         fi
     fi
@@ -1446,6 +1832,13 @@ getSmartWarnings()
 			"$smart_disk_warnings" \
 			"Pending sectors are sectors that have been identified as problematic but haven't yet been remapped. You need to check if you need to replace your storage." \
 			"null"
+		else
+			reportMessage \
+			"info" \
+			"Did not find pending sectors with the storage device >> $disk_name <<." \
+			"null" \
+			"null" \
+			"null"
         fi
     fi
     
@@ -1462,6 +1855,13 @@ getSmartWarnings()
 			"$smart_disk_warnings" \
 			"These are sectors that the drive has determined are damaged and cannot be read or repaired. You need to replace your storage, as everything can be corrupted." \
 			"null"
+		else
+			reportMessage \
+			"info" \
+			"Did not find damaged sectors with the storage device >> $disk_name <<." \
+			"" \
+			"" \
+			""
         fi
     fi
     
@@ -1478,6 +1878,13 @@ getSmartWarnings()
 			"$smart_disk_warnings" \
 			"High temperatures can damage your storage and corrupt the filesystem. You need to cool down your storage." \
 			"null"
+		else
+			reportMessage \
+			"info" \
+			"Did not find high temperature with the storage device >> $disk_name <<." \
+			"null" \
+			"null" \
+			"null"
         fi
     fi
     
@@ -1490,6 +1897,13 @@ getSmartWarnings()
 		"$disk_name - SMART Error Log has $error_count entries" \
 		"$smart_disk_warnings" \
 		"You need to run >> smartctl -l error << and check all entries. There is a chance that your storage hardware is about to fail." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find errors in smartctl check with the storage device >> $disk_name <<." \
+		"null" \
+		"null" \
 		"null"
     fi
     
@@ -1543,7 +1957,7 @@ getXorgData()
 
 		reportMessage \
 		"warning" \
-		"/usr/share/X11 was found, but usually is expected /etc/X11." \
+		"/usr/share/X11 was found." \
 		"${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11" \
 		"You need to check xorg.conf.d of both directories (/etc/X11 and /usr/share/X11) and look for configuration files that can enter in conflict with yout environment. For example: radeon drivers being loaded with nvidia driver. We recommend to backup and remove all xorg.conf.d/* files and leave just the ones that you really need. Also, check your /var/log/Xorg.log* files to verify which directories are being loaded and which xorg.conf file is being used. Sometimes both xorg.conf.d are being loaded, causing issues to your X server." \
 		"null"
@@ -1557,6 +1971,13 @@ getXorgData()
 		"${temp_dir}/warnings/nvidia_xorgconf_possible_override" \
 		"Check if you really need the additional nvidia configuration files found in /etc/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file." \
 		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find NVIDIA files under /etc/X11/xorg.conf.d/" \
+		"null" \
+		"null" \
+		"null"
     fi
 
     if ls /usr/share/X11/xorg.conf.d/*nvidia* &>/dev/null
@@ -1566,6 +1987,13 @@ getXorgData()
 		"A nvidia config file was found in >> /usr/share/X11/xorg.conf.d/*nvidia* <<. It can cause issues in xorg.conf config file." \
 		"${temp_dir}/warnings/nvidia_xorgconf_possible_override" \
 		"Check if you really need the additional nvidia configuration files found in /usr/share/X11/xorg.conf.d/*nvidia*. Usually is better to leave just your xorg.conf file." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find NVIDIA files under /usr/share/X11/xorg.conf.d/" \
+		"null" \
+		"null" \
 		"null"
     fi
 
@@ -1598,7 +2026,7 @@ getXorgData()
     fi
     done
 
-    if command -v X > /dev/null 2>&1
+    if command_exists X
     then
         if pgrep X > /dev/null
         then
@@ -1647,12 +2075,12 @@ getXorgData()
 		"The DISPLAY variable seems empty. This is normal if you are executing this script outside of GUI session. What you can do is try to export the DISPLAY variable, so the xrandr test will work." \
 		"null"
     else
-        if command -v xrandr > /dev/null 2>&1
+        if command_exists xrandr
         then
             DISPLAY=${x_display} xrandr > ${target_dir}/xrandr_stdout 2> ${target_dir}/xrandr_stderr
         fi
 
-        if command -v glxinfo > /dev/null 2>&1
+        if command_exists glxinfo
         then
 			echo "Checking GLX INFO..." | tee -a $dcv_report_path
             if [ -n "$XAUTH" ]
@@ -1674,18 +2102,31 @@ getXorgData()
 		"null"
 
 		egrep -Riq "Permission denied" ${target_dir}/* >> ${temp_dir}/warnings/xorg_permission_denied
+	else
+		reportMessage \
+		"info" \
+		"Did not find permission denied errors in Xorg log." \
+		"null" \
+		"null" \
+		"null"
 	fi
 
 	if egrep -Riq "Unable to get display device" ${target_dir}/*
 	then
 		reportMessage \
 		"warning" \
-		"Graphics driver couldn't detect or communicate with a display device to determine the proper DPI." \
+		"Graphics driver couldn't detect or communicate with a display device." \
 		"${temp_dir}/warnings/gpu_driver_unable_get_display_device" \
-		"You need to investigate why your GPU driver can not get the Display device data. (1) Usually if you are using the Xorg option UseDisplayDevice set as None, or (3) the server has physical connection issues, you will get this issue. (3) Permissions drivers problems can also cause the issue." \
+		"You need to investigate why your GPU driver can not get the Display device data. (1) Usually if you are using the Xorg option UseDisplayDevice set as None, or (2) the server has physical connection issues, you will get this issue. (3) Permissions drivers problems can also cause the issue." \
 		"null"
-
 		egrep -Riq "Unable to get display device" >> ${temp_dir}/warnings/gpu_driver_unable_get_display_device
+	else
+		reportMessage \
+		"info" \
+		"Did not find issues to get display device info data." \
+		"null" \
+		"null" \
+		"null"
 	fi
 }
 
@@ -1749,9 +2190,16 @@ getCronData()
     then    
         reportMessage \
         "warning" \
-		"Found dcv string in cronjob scheduler" \
+		"Found dcv string in cronjobs directory." \
         "${temp_dir}/warnings/dcv_cronjob_match" \
 		"Found cronjobs that has the string dcv in the commands. Please be sure that this is not causing any issue to DCV services." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"Did not find dcv string in cronjobs directories." \
+		"null" \
+		"null" \
 		"null"
 	fi
 }
@@ -1771,10 +2219,17 @@ checkNetwork()
 			"warning" \
 			"Network errors were found in dmesg." \
 			"${temp_dir}/warnings/found_network_issues" \
-			"You need to troubleshoot what is wrong with your ethernet card or the network, because this can cause issues in the DCV protocol." \
+			"You need to troubleshoot what is wrong with your ethernet card or the network, because this can cause issues in the DCV traffic." \
 			"null"
 
             sudo dmesg | grep -iE '(eth|eno|ens|enp|wl)[0-9]: (link|driver|hardware|error|timeout)' | grep -i "error\|fail\|down\|collision\|duplex\|timeout" > ${target_dir}/network_issues_log
+		else
+			reportMessage \
+			"info" \
+			"Did not find network errors in the ethernet devices." \
+			"null" \
+			"null" \
+			"null"
         fi
     fi
 
