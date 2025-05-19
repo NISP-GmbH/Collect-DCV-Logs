@@ -1615,7 +1615,7 @@ getOsData()
 			"DCV process is having segmentation fault." \
 			"${temp_dir}/warnings/segmentation_fault_found_dcv" \
 			"${dcv_report_text_about_segfault}" \
-			"null"
+			"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
 		fi
 
 	else
@@ -2370,7 +2370,7 @@ smart_disk_report=""
 smart_disk_warnings=""
 NISPGMBHHASH="NISPGMBHHASH"
 
-dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior. For more info, please check:"
+dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior."
 for arg in "$@"
 do
 	case $arg in

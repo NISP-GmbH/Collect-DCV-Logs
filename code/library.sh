@@ -1599,7 +1599,7 @@ getOsData()
 			"DCV process is having segmentation fault." \
 			"${temp_dir}/warnings/segmentation_fault_found_dcv" \
 			"${dcv_report_text_about_segfault}" \
-			"null"
+			"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
 		fi
 
 	else
