@@ -1690,7 +1690,7 @@ getOsData()
 	then
 		reportMessage \
 		"critical" \
-		"Valid GRID license not found" \
+		"Valid GRID license not found." \
 		"${temp_dir}/warnings/nvidia_grid_license_not_found" \
 		"Your GPU card resources is being limited due no license installed. Please install the license to release all GPU resources." \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-nvidia-limited-sessions-performance-after-some-sessions-created https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-valid-grid-license-not-found https://docs.nvidia.com/vgpu/15.0/grid-licensing-user-guide/index.html#configuring-nls-licensed-client"
