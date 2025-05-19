@@ -688,16 +688,16 @@ checkDisplayManager()
 		display_manager_path="/etc/systemd/system/display-manager.service"
 		if [ -f $display_manager_path ]
 		then
-			display_manager_name=$(basename ${display_manager_path} .service)
+			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | egrep -i execstart | cut -d"=" -f2))
 		fi
 	fi
 
 	if $ubuntu_distro
 	then
-		display_manager_path="/etc/X11/default-display-manager"
+		display_manager_path="/etc/systemd/system/display-manager.service"
 		if [ -f $display_manager_path ]
 		then
-			display_manager_name=$(basename ${display_manager_pat}h .service)
+			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | egrep -i execstart | cut -d"=" -f2))
 		fi
 	fi
 
