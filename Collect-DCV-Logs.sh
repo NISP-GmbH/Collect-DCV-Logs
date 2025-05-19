@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# Copyright (C) 2019-2024 NI SP GmbH
+# Copyright (C) 2019-2025 NI SP GmbH
 # All Rights Reserved
 #
 # info@ni-sp.com / www.ni-sp.com
