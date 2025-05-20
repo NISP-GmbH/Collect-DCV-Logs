@@ -34,7 +34,6 @@ sudo bash -c "$(wget --no-check-certificate -qO- https://raw.githubusercontent.c
 # For report-only mode
 wget --no-check-certificate -qO /tmp/Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash /tmp/Collect-DCV-Logs.sh --report-only
 
-
 # For collect-logs mode
 wget --no-check-certificate -qO /tmp/Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash /tmp/Collect-DCV-Logs.sh --collect-logs
 ```
