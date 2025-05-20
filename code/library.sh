@@ -1227,15 +1227,45 @@ getDcvData()
 	fi
 
 	log_files=$(find -iname "agent.*.log*" 2>/dev/null)
-	for log_file in $log_files
+	unique_usernames=()
+
+	for file in $log_files
 	do
-	    drop_rate_count=$(grep -c "drop_rate" "$log_file" 2>/dev/null)
+	    basename=$(basename "$file")
+	    username=$(echo "$basename" | cut -d. -f2)
     
-		count_drop_rate_cases=0
-    	if [ "$drop_rate_count" -gt 80 ]
+	    already_exists=0
+	    for existing in "${unique_usernames[@]}"
+	    do
+	        if [[ "$existing" == "$username" ]]
+			then
+	            already_exists=1
+	            break
+	        fi
+	    done
+    
+    	if [[ $already_exists -eq 0 ]]
+		then
+        	unique_usernames+=("$username")
+    	fi
+	done
+
+	count_drop_rate_cases=0
+	for unique_username in $unique_usernames
+	do
+		drop_rate_count=0
+	    drop_rate_count=$(grep -Ric "drop_rate" ${target_dir}/dcv/agent.${unique_username}*.log* 2>/dev/null | awk -F: '{sum+=$2} END {print sum}')
+
+		if [[ "${drop_rate_count}x" == "x" ]]
+		then
+			drop_rate_count=0
+		fi
+
+    	if [ "$drop_rate_count" -gt 100 ]
 		then
 			count_drop_rate_cases=$((count_drop_rate_cases + 1))
-			user_drop_rate=$(echo $log_file | cut -d"." -f3)
+			user_drop_rate=$unique_username
+
         	reportMessage \
 			"warning" \
 			"Found >> $drop_rate_count << drop_rate messages from the user >> $user_drop_rate <<." \
@@ -1586,7 +1616,7 @@ getOsData()
     then
 		reportMessage \
 		"warning" \
-		"Segmentation fault events found in journalctl..." \
+		"Segmentation fault events found in journalctl." \
 		"${temp_dir}/warnings/segmentation_fault_found" \
 		"${dcv_report_text_about_segfault}" \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
