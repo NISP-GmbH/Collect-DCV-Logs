@@ -32,10 +32,11 @@ or
 sudo bash -c "$(wget --no-check-certificate -qO- https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh)"
 
 # For report-only mode
-sudo bash -c "$(wget --no-check-certificate -qO- https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh) -- --report-only"
+wget --no-check-certificate -qO /tmp/Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash /tmp/Collect-DCV-Logs.sh --report-only
+
 
 # For collect-logs mode
-sudo bash -c "$(wget --no-check-certificate -qO- https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh) -- --collect-logs"
+wget --no-check-certificate -qO /tmp/Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash /tmp/Collect-DCV-Logs.sh --collect-logs
 ```
 
 **Important:** 
