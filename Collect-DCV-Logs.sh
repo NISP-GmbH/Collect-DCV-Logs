@@ -688,16 +688,16 @@ checkDisplayManager()
 		display_manager_path="/etc/systemd/system/display-manager.service"
 		if [ -f $display_manager_path ]
 		then
-			display_manager_name=$(basename ${display_manager_path} .service)
+			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | egrep -i execstart | cut -d"=" -f2))
 		fi
 	fi
 
 	if $ubuntu_distro
 	then
-		display_manager_path="/etc/X11/default-display-manager"
+		display_manager_path="/etc/systemd/system/display-manager.service"
 		if [ -f $display_manager_path ]
 		then
-			display_manager_name=$(basename ${display_manager_pat}h .service)
+			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | egrep -i execstart | cut -d"=" -f2))
 		fi
 	fi
 
@@ -1243,15 +1243,45 @@ getDcvData()
 	fi
 
 	log_files=$(find -iname "agent.*.log*" 2>/dev/null)
-	for log_file in $log_files
+	unique_usernames=()
+
+	for file in $log_files
 	do
-	    drop_rate_count=$(grep -c "drop_rate" "$log_file" 2>/dev/null)
+	    basename=$(basename "$file")
+	    username=$(echo "$basename" | cut -d. -f2)
     
-		count_drop_rate_cases=0
-    	if [ "$drop_rate_count" -gt 80 ]
+	    already_exists=0
+	    for existing in "${unique_usernames[@]}"
+	    do
+	        if [[ "$existing" == "$username" ]]
+			then
+	            already_exists=1
+	            break
+	        fi
+	    done
+    
+    	if [[ $already_exists -eq 0 ]]
+		then
+        	unique_usernames+=("$username")
+    	fi
+	done
+
+	count_drop_rate_cases=0
+	for unique_username in $unique_usernames
+	do
+		drop_rate_count=0
+	    drop_rate_count=$(grep -Ric "drop_rate" ${target_dir}/dcv/agent.${unique_username}*.log* 2>/dev/null | awk -F: '{sum+=$2} END {print sum}')
+
+		if [[ "${drop_rate_count}x" == "x" ]]
+		then
+			drop_rate_count=0
+		fi
+
+    	if [ "$drop_rate_count" -gt 100 ]
 		then
 			count_drop_rate_cases=$((count_drop_rate_cases + 1))
-			user_drop_rate=$(echo $log_file | cut -d"." -f3)
+			user_drop_rate=$unique_username
+
         	reportMessage \
 			"warning" \
 			"Found >> $drop_rate_count << drop_rate messages from the user >> $user_drop_rate <<." \
@@ -1602,7 +1632,7 @@ getOsData()
     then
 		reportMessage \
 		"warning" \
-		"Segmentation fault events found in journalctl..." \
+		"Segmentation fault events found in journalctl." \
 		"${temp_dir}/warnings/segmentation_fault_found" \
 		"${dcv_report_text_about_segfault}" \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
@@ -1615,7 +1645,7 @@ getOsData()
 			"DCV process is having segmentation fault." \
 			"${temp_dir}/warnings/segmentation_fault_found_dcv" \
 			"${dcv_report_text_about_segfault}" \
-			"null"
+			"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
 		fi
 
 	else
@@ -1706,7 +1736,7 @@ getOsData()
 	then
 		reportMessage \
 		"critical" \
-		"Valid GRID license not found" \
+		"Valid GRID license not found." \
 		"${temp_dir}/warnings/nvidia_grid_license_not_found" \
 		"Your GPU card resources is being limited due no license installed. Please install the license to release all GPU resources." \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-nvidia-limited-sessions-performance-after-some-sessions-created https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-valid-grid-license-not-found https://docs.nvidia.com/vgpu/15.0/grid-licensing-user-guide/index.html#configuring-nls-licensed-client"
@@ -2370,7 +2400,7 @@ smart_disk_report=""
 smart_disk_warnings=""
 NISPGMBHHASH="NISPGMBHHASH"
 
-dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior. For more info, please check:"
+dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior."
 for arg in "$@"
 do
 	case $arg in
