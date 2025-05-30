@@ -2263,35 +2263,39 @@ checkNetwork()
         fi
     fi
 
-    if command_exists host || command_exists dig || command_exists nslookup
+    dns_is_working="false"
+    if command_exists host
 	then
-        if command_exists host
+    	if ! host $dns_test_domain &>/dev/null
 		then
-            if ! host $dns_test_domain &>/dev/null
-			then
-                dns_is_working="false"
-            else
+            dns_is_working="false"
+        else
                 dns_is_working="true"
-            fi
-        elif command_exists dig
-		then
-            if ! dig +short $dns_test_domain  &>/dev/null
-			then
-                dns_is_working="false"
-            else
-                dns_is_working="true"
-            fi
-        elif command_exists nslookup
-		then
-            if ! nslookup $dns_test_domain  &>/dev/null
-			then
-                dns_is_working="false"
-            else
-                dns_is_working="true"
-            fi
         fi
-    else
-        dns_is_working="false"
+    elif command_exists dig
+	then
+    	if ! dig +short $dns_test_domain  &>/dev/null
+		then
+        	dns_is_working="false"
+        else
+            dns_is_working="true"
+        fi
+    elif command_exists nslookup
+	then
+    	if ! nslookup $dns_test_domain  &>/dev/null
+		then
+        	dns_is_working="false"
+        else
+            dns_is_working="true"
+        fi
+	elif command_exists getent
+	then
+		if ! getent hosts  &>/dev/null
+		then
+        	dns_is_working="false"
+        else
+            dns_is_working="true"
+        fi
     fi
 
 	if $dns_is_working
