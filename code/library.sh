@@ -1,5 +1,10 @@
 doHtmlReport()
 {
+    for html_section in head critical warning info tail
+    do  
+        touch html_${html_section}
+    done
+
 	cat << EOF >> ${dcv_report_dir_path}/html_head
 <!DOCTYPE html>
 <html lang="en">
