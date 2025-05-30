@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# Copyright (C) 2019-2025 NI SP GmbH
+# Copyright (C) 2019-2024 NI SP GmbH
 # All Rights Reserved
 #
 # info@ni-sp.com / www.ni-sp.com
@@ -16,6 +16,14 @@
 
 doHtmlReport()
 {
+    for html_section in head critical warning info tail
+    do
+        if [ ! -f ${dcv_report_dir_path}/html_${html_section} ]
+        then
+            echo " " > ${dcv_report_dir_path}/html_${html_section}
+        fi
+    done
+
 	cat << EOF >> ${dcv_report_dir_path}/html_head
 <!DOCTYPE html>
 <html lang="en">
@@ -1684,7 +1692,7 @@ getOsData()
         "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors." \
 		"null"
 		
-		egrep -Ri "gnome-terminal-server.*Fatal IO error" >> ${temp_dir}/warnings/gnome_fatal_io_error
+		egrep -Ri "gnome-terminal-server.*Fatal IO error" ${target_dir}/* >> ${temp_dir}/warnings/gnome_fatal_io_error
 	else
 		reportMessage \
 		"info" \
@@ -1702,7 +1710,7 @@ getOsData()
         "${temp_dir}/warnings/bar_failures_found" \
         "BAR stands for Base Address Register, which is a mechanism used by PCI devices to request memory or I/O space from the system. These errors typically occur when: (A) The system doesn't have enough I/O address space available to satisfy all PCI devices. (B) There might be conflicts between devices requesting the same resources. (C) The BIOS/UEFI didn't properly allocate or reserve the necessary resources. If you are using a virtualized environment with a lot of virtual devices, for example, is possible that your VM has not enough resources to support all devices, what can cause DCV issues, specially when GPU is being used. While these errors look concerning, they don't always cause functional problems. Many systems can still operate normally with some BAR allocation failures, as the kernel typically tries to work around these issues. " \
 		"null"
-		egrep -Ri "BAR.*failed to assign" >> ${temp_dir}/warnings/bar_failures_found
+		egrep -Ri "BAR.*failed to assign" ${target_dir}/* >> ${temp_dir}/warnings/bar_failures_found
 
 		reportMessage \
 		"info" \
@@ -1722,7 +1730,7 @@ getOsData()
         "The sideband socket is part of NVIDIA's driver communication system, used for exchanging information between different components of the graphics system. When this binding fails, it typically indicates: (A) A permission problem (the process doesn't have rights to access the socket). (B) The socket is already in use by another process. (C) The NVIDIA driver might be experiencing conflicts with other system components. You need to check if you have conflicting drivers." \
 		"null"
 
-		egrep -Ri "NVIDIA.*Failed to bind sideband socket" >> ${temp_dir}/warnings/nvidia_fail_to_bind
+		egrep -Ri "NVIDIA.*Failed to bind sideband socket" ${target_dir}/* >> ${temp_dir}/warnings/nvidia_fail_to_bind
 	else
 		reportMessage \
 		"info" \
@@ -2279,35 +2287,39 @@ checkNetwork()
         fi
     fi
 
-    if command_exists host || command_exists dig || command_exists nslookup
+    dns_is_working="false"
+    if command_exists host
 	then
-        if command_exists host
+    	if ! host $dns_test_domain &>/dev/null
 		then
-            if ! host $dns_test_domain &>/dev/null
-			then
-                dns_is_working="false"
-            else
+            dns_is_working="false"
+        else
                 dns_is_working="true"
-            fi
-        elif command_exists dig
-		then
-            if ! dig +short $dns_test_domain  &>/dev/null
-			then
-                dns_is_working="false"
-            else
-                dns_is_working="true"
-            fi
-        elif command_exists nslookup
-		then
-            if ! nslookup $dns_test_domain  &>/dev/null
-			then
-                dns_is_working="false"
-            else
-                dns_is_working="true"
-            fi
         fi
-    else
-        dns_is_working="false"
+    elif command_exists dig
+	then
+    	if ! dig +short $dns_test_domain  &>/dev/null
+		then
+        	dns_is_working="false"
+        else
+            dns_is_working="true"
+        fi
+    elif command_exists nslookup
+	then
+    	if ! nslookup $dns_test_domain  &>/dev/null
+		then
+        	dns_is_working="false"
+        else
+            dns_is_working="true"
+        fi
+	elif command_exists getent
+	then
+		if ! getent hosts  &>/dev/null
+		then
+        	dns_is_working="false"
+        else
+            dns_is_working="true"
+        fi
     fi
 
 	if $dns_is_working
@@ -2401,6 +2413,7 @@ smart_disk_warnings=""
 NISPGMBHHASH="NISPGMBHHASH"
 
 dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior."
+
 for arg in "$@"
 do
 	case $arg in
