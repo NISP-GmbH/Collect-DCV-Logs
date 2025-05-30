@@ -1,8 +1,11 @@
 doHtmlReport()
 {
     for html_section in head critical warning info tail
-    do  
-        touch html_${html_section}
+    do
+        if [ ! -f ${dcv_report_dir_path}/html_${html_section} ]
+        then
+            echo " " > ${dcv_report_dir_path}/html_${html_section}
+        fi
     done
 
 	cat << EOF >> ${dcv_report_dir_path}/html_head
