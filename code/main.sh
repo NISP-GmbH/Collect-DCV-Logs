@@ -94,6 +94,7 @@ main()
     getNsswitchData
 	getCronInfo
 	getCronData
+    getUsbData
 	checkNetwork
     getPamData
     getXorgData

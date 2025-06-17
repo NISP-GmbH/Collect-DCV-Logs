@@ -513,7 +513,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -1495,6 +1495,48 @@ getSystemdData()
     echo "Collecting all SystemD relevant data..."
     target_dir="${temp_dir}/systemd_info/"
     sudo cp -a /etc/systemd/system/dcv*  ${target_dir}
+}
+
+getUsbData()
+{
+    echo "Collecting all OS USB relevant data..." | tee -a $dcv_report_path
+    target_dir="${temp_dir}/usb_data/"
+
+    if command_exists lsusb
+    then
+        sudo lsusb -v >> $target_dir/lsusb_-v.txt
+        sudo lsusb -t >> $target_dir/lsusb_-t.txt
+    fi
+
+    sudo find /sys/bus/usb/devices/ -name "product" -exec sh -c 'echo "=== $1 ==="; cat "$1"' _ {} \; > $target_dir/usb_products.txt
+    sudo find /sys/bus/usb/devices/ -name "manufacturer" -exec sh -c 'echo "=== $1 ==="; cat "$1"' _ {} \; > $target_dir/usb_manufacturers.txt
+    sudo find /sys/bus/usb/devices/ -name "serial" -exec sh -c 'echo "=== $1 ==="; cat "$1"' _ {} \; > $target_dir/usb_serials.txt
+    
+    if command_exists lspci
+    then
+        sudo lspci | grep -i usb > $target_dir/usb_controllers.txt
+        sudo cat /sys/kernel/debug/usb/devices > $target_dir/usb_debug_info.txt
+    fi
+
+    sudo journalctl -k | grep -i usb > $target_dir/usb_journal.txt
+
+    sudo ls -la /dev/bus/usb/*/* > $target_dir/usb_permissions.txt
+    sudo mount | grep usb > $target_dir/usb_mounts.txt
+    sudo lsblk > $target_dir/block_devices.txt
+
+    sudo find /sys/bus/usb/devices/ -name "power" -type d -exec sh -c 'echo "=== $1 ==="; find "$1" -type f -exec sh -c "echo \"{}: \"; cat \"{}\" 2>/dev/null || echo \"(unreadable)\"" \;' _ {} \; > $target_dir/usb_power_mgmt.txt
+
+    sudo lsmod | grep usb > $target_dir/usb_modules.txt
+    if command_exists modinfo
+    then
+        sudo modinfo usbcore > $target_dir/usbcore_info.txt
+    fi
+
+    if command_exists lshw
+    then
+        sudo lshw -class bus -class usb > $target_dir/hardware_usb.txt
+        sudo lshw -class bus -class usb > hardware_usb.txt
+    fi
 }
 
 getOsData()
