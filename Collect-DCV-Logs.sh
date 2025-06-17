@@ -2469,10 +2469,26 @@ checkNetwork()
         fi
     fi
 
-	if command_exists netstat
-	then
-		sudo netstat -nlptu | tee ${target_dir}/network_netstat_nlptu > /dev/null
-	fi
+    if command_exists netstat
+    then
+        echo "Using netstat..."
+        sudo netstat -tulpn >> ${target_dir}/netstat_-tulpn
+    elif command_exists ss
+    then
+        echo "Using ss..."
+        sudo ss -tulpn >> ${target_dir}/ss_-tulpn
+    elif command_exists lsof
+    then
+        echo "Using lsof..."
+        sudo lsof -i -P -n | grep LISTEN >> ${target_dir}/lsof_-i_-P_-n
+    else
+        echo "None of the required commands (netstat, ss, lsof) are available."
+        echo "Falling back to /proc filesystem:"
+        echo "TCP ports:"
+        sudo cat /proc/net/tcp 2>/dev/null >> ${target_dir}/proc_net_tcp
+        echo "UDP ports:"
+        sudo cat /proc/net/udp 2>/dev/null ${target_dir}/proc_net_udp
+    fi
 }
 
 # global vars
