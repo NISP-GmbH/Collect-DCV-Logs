@@ -1224,8 +1224,7 @@ getDcvData()
         fi
     fi
 
-	echo "Checking /etc/dcv/dcv.conf file..." | tee -a $dcv_report_path
-
+	echo "Checking /etc/dcv/dcv.conf and memory parameters file..." | tee -a $dcv_report_path
     if sudo dcv get-config --all | egrep -i "no-tls-strict" | egrep -iq "false"
     then
 		reportMessage \
@@ -1253,6 +1252,25 @@ getDcvData()
 		"null"
     fi
 
+	echo "Checking if CPU is being used..." | tee -a $dcv_report_path
+    if safeLogChek "info: using cpu capabilities" "${target_dir}"
+    then
+		reportMessage \
+		"warning" \
+		"Using CPU instead of GPU capabilities." \
+		"${temp_dir}/warnings/dcv_is_being_used_with_cpu" \
+		"Unless you do not have a GPU, is essential to use a GPU to accelerate the graphics. You need to check your GPU drivers to understand what is happening." \
+		"null"
+    else
+		reportMessage \
+		"info" \
+		"GPU is being used to accelerate the session." \
+		"null" \
+		"null" \
+		"null"
+    fi
+    
+	echo "Checking license issues..." | tee -a $dcv_report_path
 	if safeLogCheck "Failed checkout of product.*with version" "${target_dir}"
 	then
         reportMessage \
@@ -1562,6 +1580,11 @@ getOsData()
         sudo cp -R /etc/modules* ${target_dir}/
     fi
 
+    if [ -d /etc/modules.d ]
+    then
+        sudo cp -R /etc/modules* ${target_dir}/
+    fi
+
     if [ -d /etc/modprobe.d/ ]
     then
         sudo cp -R /etc/modprobe* ${target_dir}/
@@ -1707,7 +1730,24 @@ getOsData()
 		"null"
     fi
 
-	if safeLogCheck "Could not get tablet information for 'Xdcv eraser'" ${target_dir}/*
+    if safeLogCheck "unable to get EDID for output" "${target_dir}"
+    then
+		reportMessage \
+		"warning" \
+		"Unable to get EDID for output." \
+		"null" \
+		"This is not a critical event, but if you need to use EDID, you may need to provide a EDID file if your dislay is not capable to provide EDID data." \
+		"null"
+    else
+    	reportMessage \
+		"info" \
+		"Did not find isses to get EDID data." \
+		"null" \
+		"null" \
+		"null"
+    fi
+
+	if safeLogCheck "Could not get tablet information for 'Xdcv eraser'" "${target_dir}"
 	then
 		egrep -Ri "Could not get tablet information for 'Xdcv eraser'" ${target_dir}/* >> ${temp_dir}/warnings/Xdcv_errors
 		reportMessage \
@@ -1725,6 +1765,25 @@ getOsData()
 		"null"
 	fi
 
+	if safeLogCheck "Fatal IO error.*X server" "${target_dir}"
+	then
+		reportMessage \
+        "critical" \
+        "Identified Fatal IO error with X server." \
+        "${temp_dir}/warnings/x_fatal_io_error" \
+        "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors." \
+		"null"
+		
+		egrep -Ri "Fatal IO error.*X server" ${target_dir}/* >> ${temp_dir}/warnings/x_fatal_io_error
+	else
+		reportMessage \
+		"info" \
+		"Did not find X IO error events." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
 	if safeLogCheck "gnome-.*Fatal IO error" "${target_dir}"
 	then
 		reportMessage \
@@ -1734,7 +1793,7 @@ getOsData()
         "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors." \
 		"null"
 		
-		egrep -Ri "gnome-terminal-server.*Fatal IO error" ${target_dir}/* >> ${temp_dir}/warnings/gnome_fatal_io_error
+		egrep -Ri "gnome-.*Fatal IO error" ${target_dir}/* >> ${temp_dir}/warnings/gnome_fatal_io_error
 	else
 		reportMessage \
 		"info" \
