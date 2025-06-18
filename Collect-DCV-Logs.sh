@@ -14,6 +14,43 @@
 # deriving from the use or misuse of this information.
 ################################################################################
 
+safeLogCheck()
+{
+    local pattern="$1"
+    local target="$2"
+    
+    if [[ "$target" == *"*"* ]]
+    then
+        local dir_part=$(dirname "$target")
+        local file_pattern=$(basename "$target")
+        local matching_files=$(find "$dir_part" -maxdepth 1 -name "$file_pattern" -type f 2>/dev/null)
+        
+        if [ -z "$matching_files" ]
+        then
+            return 1
+        fi
+        
+        local results=$(echo "$matching_files" | xargs grep -iE "$pattern" 2>/dev/null | \
+                       grep -vE "($$|wget|bash.*Collect|curl|${SCRIPT_MARKER})" | \
+                       grep -v "$(basename $0)")                       
+    elif [ -f "$target" ]
+    then
+        local results=$(grep -iE "$pattern" "$target" 2>/dev/null | \
+                       grep -vE "($$|wget|bash.*Collect|curl|${SCRIPT_MARKER})" | \
+                       grep -v "$(basename $0)")
+                       
+    elif [ -d "$target" ]
+    then
+        local results=$(egrep -Ri "$pattern" "$target" 2>/dev/null | \
+                       grep -vE "($$|wget|bash.*Collect|curl|${SCRIPT_MARKER})" | \
+                       grep -v "$(basename $0)")
+    else
+        return 1
+    fi
+    
+    [ -n "$results" ]
+}
+
 doHtmlReport()
 {
     for html_section in head critical warning info tail
@@ -492,7 +529,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log
+    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -532,7 +569,7 @@ checkPackagesVersions()
             fi
         done
 		
-	    if cat ${target_dir}/packages_might_not_os_compatible | egrep -iq dcv
+	    if safeLogCheck "dcv" "${target_dir}/packages_might_not_os_compatible"
 	    then
 	    	dcv_packages_not_compatible=$(cat ${target_dir}/packages_might_not_os_compatible | egrep -i dcv)
 			reportMessage \
@@ -657,7 +694,7 @@ getSssdData()
     fi
 
     detect_service=""
-    detect_service=$(sudo ps aux | egrep -iv "${NISPGMBHHASH}" | egrep -i '[s]ssd')
+    detect_service=$(sudo ps aux | egrep -iv "${SCRIPT_MARKER}" | egrep -i '[s]ssd')
     if [[ "${detect_service}x" != "x" ]]
     then
         echo "$detect_service" > $temp_dir/warnings/sssd_is_running
@@ -757,16 +794,19 @@ lookForDmIssues()
 	warning_dir=$2
 	
 	regular_expression="(fail|cannot|unable|crash|segfault|timeout|fatal|error|denied|segmentation|abort|too many)"
-	if egrep -Ri "$regular_expression" $log_dir_to_look > ${warning_dir}/${display_manager_name}_errors
+	if safeLogCheck "$regular_expression" "$log_dir_to_look"
 	then
 		reportMessage \
 		"warning" \
 		"Found some unusual error/fail/deny/timeout in SDDM logs." \
-		"${temp_dir}/warnings/gdm_errors" \
+		"${temp_dir}/warnings/${display_manager_name}_errors" \
 		"Look our tutorial about how to correctly build SDDM environment in:" \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/"
 
-		if egrep -Ri "$regular_expression" $log_dir_to_look  | egrep -i dcv > ${warning_dir}/${display_manager_name}_dcv_errors
+        egrep -Ri "$regular_expression" $log_dir_to_look  | egrep -i dcv > ${warning_dir}/${display_manager_name}_errors
+
+        regular_expression="(dcv.*${regular_expression}|${regular_expression}.*dcv)"
+		if safeLogCheck "$regular_expression" "$log_dir_to_look"
 		then
 			reportMessage \
 			"critical" \
@@ -774,6 +814,8 @@ lookForDmIssues()
 			"${warning_dir}/${display_manager_name}_dcv_errors" \
 			"Please check your >> $display_manager_name << DISPLAY MANAGER logs to understand why DCV process is being affected." \
 			"null"
+
+            egrep -Ri "$regular_expression" $log_dir_to_look  | egrep -i dcv > ${warning_dir}/${display_manager_name}_dcv_errors
 		fi
 	else
 		reportMessage \
@@ -948,7 +990,7 @@ getDcvData()
     fi
 
     echo "Checking for signal 11 events..." | tee -a $dcv_report_path
-    if cat ${target_dir}/dcv/*.log.* | egrep -iq "killed by signal 11"
+    if safeLogCheck "killed by signal 11" "${target_dir}/dcv"
     then
 		reportMessage \
 		"critical" \
@@ -965,7 +1007,7 @@ getDcvData()
 		"null"
     fi
 
-	if egrep -Riq "(invalid-session-id|unknown session)" ${target_dir}/*
+	if safeLogCheck "(invalid-session-id|unknown session)" "${target_dir}"
 	then
 		reportMessage \
 		"critical" \
@@ -982,7 +1024,7 @@ getDcvData()
 		"null"
 	fi
 
-	if egrep -Riq "Communications error with license server" ${target_dir}/*
+	if safeLogCheck "Communications error with license server" "${target_dir}"
 	then
 		reportMessage \
 		"critical" \
@@ -999,7 +1041,7 @@ getDcvData()
 		"null"
 	fi
 
-	if egrep -Riq "Could not create.*session" ${target_dir}/*
+	if safeLogCheck "Could not create.*session" "${target_dir}"
 	then
 		reportMessage \
 		"critical" \
@@ -1016,7 +1058,7 @@ getDcvData()
 		"null"
 	fi
 
-	if egrep -Riq "Could not acquire dcv licenses" ${target_dir}/*
+	if safeLogCheck "Could not acquire dcv licenses" "${target_dir}"
 	then
 		reportMessage \
 		"critical" \
@@ -1034,11 +1076,10 @@ getDcvData()
 	fi
 
     echo "Checking for not authorized channels events..." | tee -a $dcv_report_path
-    if egrep -Riq ".*not authorized in any channel.*" ${target_dir}/*
+    if safeLogCheck ".*not authorized in any channel.*" "${target_dir}"
     then
 		reportMessage \
 		"critical" \
-
 		"Found NOT AUTHORIZED EVENT IN ANY CHANNEL." \
 		"${temp_dir}/warnings/possible_owner_session_issue" \
 		"There are users that can not enter in a session due not enough permissions." \
@@ -1054,7 +1095,7 @@ getDcvData()
     fi
     
     echo "Checking for RLM permission issues..." | tee -a $dcv_report_path
-    if cat ${target_dir}/dcv/server* | egrep -iq ".*RLM Initialization.*failed.*permission denied.*13.*"
+    if safeLogCheck ".*RLM Initialization.*failed.*permission denied.*13.*" "${target_dir}/dcv/server*"
     then
 		reportMessage \
 		"critical" \
@@ -1074,7 +1115,7 @@ getDcvData()
     fi
 
     echo "Checking for client access denied events..." | tee -a $dcv_report_path
-    if cat ${target_dir}/dcv/server* | egrep -iq ".*client will not be allowed to connect.*"
+    if safeLogCheck ".*client will not be allowed to connect.*" "${target_dir}/dcv/server*"
     then
 		reportMessage \
 		"critical" \
@@ -1092,7 +1133,7 @@ getDcvData()
     fi
 
     echo "Checking for too many files warnings..." | tee -a $dcv_report_path
-    if egrep -iq ".*too many files open.*" ${target_dir}/dcv/server*
+    if safeLogCheck ".*too many files open.*" "${target_dir}/dcv/server*"
     then
 		reportMessage \
 		"critical" \
@@ -1110,13 +1151,13 @@ getDcvData()
     fi
 
     echo "Checking if QUIC is being started..."
-    if cat ${target_dir}/dcv/server.log | egrep -iq "QUIC frontend enabled"
+    if safeLogCheck "QUIC frontend enabled" "${target_dir}/dcv/server.log"
     then
         temp_quic_enabled=true
     fi
 
     echo "Checking for license and network related events..." | tee -a $dcv_report_path
-    if egrep -iq "bad.*hostname.*license" ${target_dir}/dcv/server* 
+    if safeLogCheck "bad.*hostname.*license" "${target_dir}/dcv/server*"
     then
 		reportMessage \
 		"critical" \
@@ -1134,7 +1175,7 @@ getDcvData()
     fi
 
 	echo "Checking relevant info about QUIC..." | tee -a $dcv_report_path
-    if ! cat ${target_dir}/dcv/server* | egrep -iq "quictransport"
+    if ! safeLogCheck "quictransport" "${target_dir}/dcv/server*"
     then
         if $temp_quic_enabled
         then
@@ -1145,7 +1186,7 @@ getDcvData()
     fi
 
     echo "Checking for old DCV Viewer versions..." | tee -a $dcv_report_path
-    if egrep -iq "DCV Viewer.*202[23]" ${target_dir}/dcv/agent*
+    if safeLogCheck "DCV Viewer.*202[23]" "${target_dir}/dcv/agent*"
     then
 		reportMessage \
 		"warning" \
@@ -1165,7 +1206,7 @@ getDcvData()
 	echo "Checking for DCV license issues..." | tee -a $dcv_report_path
     if [ -f /var/log/dcv/server.log ]
     then
-        if egrep -iq "No license for product" /var/log/dcv/server.log
+        if safeLogCheck "No license for product" "${target_dir}/dcv/server.log"
         then
 			reportMessage \
 			"critical" \
@@ -1183,8 +1224,7 @@ getDcvData()
         fi
     fi
 
-	echo "Checking /etc/dcv/dcv.conf file..." | tee -a $dcv_report_path
-
+	echo "Checking /etc/dcv/dcv.conf and memory parameters file..." | tee -a $dcv_report_path
     if sudo dcv get-config --all | egrep -i "no-tls-strict" | egrep -iq "false"
     then
 		reportMessage \
@@ -1212,7 +1252,26 @@ getDcvData()
 		"null"
     fi
 
-	if egrep -Riq "Failed checkout of product.*with version" ${target_dir}/* > /dev/null 2>&1
+	echo "Checking if CPU is being used..." | tee -a $dcv_report_path
+    if safeLogChek "info: using cpu capabilities" "${target_dir}"
+    then
+		reportMessage \
+		"warning" \
+		"Using CPU instead of GPU capabilities." \
+		"${temp_dir}/warnings/dcv_is_being_used_with_cpu" \
+		"Unless you do not have a GPU, is essential to use a GPU to accelerate the graphics. You need to check your GPU drivers to understand what is happening." \
+		"null"
+    else
+		reportMessage \
+		"info" \
+		"GPU is being used to accelerate the session." \
+		"null" \
+		"null" \
+		"null"
+    fi
+    
+	echo "Checking license issues..." | tee -a $dcv_report_path
+	if safeLogCheck "Failed checkout of product.*with version" "${target_dir}"
 	then
         reportMessage \
         "critical" \
@@ -1231,7 +1290,7 @@ getDcvData()
 		"null"
 	fi
 
-	if egrep -Riq "There was a problem stopping the session" ${target_dir}/* > /dev/null 2>&1
+	if safeLogCheck "There was a problem stopping the session" "${target_dir}"
 	then
         reportMessage \
         "critical" \
@@ -1309,7 +1368,7 @@ getDcvData()
 		"null"
 	fi
 
-	if egrep -Riq "No frame ack from the client.*, video streaming is blocked for channel" ${target_dir}/*
+	if safeLogCheck "No frame ack from the client.*, video streaming is blocked for channel" "${target_dir}"
 	then
 		reportMessage \
 		"warning" \
@@ -1326,7 +1385,7 @@ getDcvData()
 		"null"
 	fi
 
-	if egrep -Riq "No protocol specified" ${target_dir}/*
+	if safeLogCheck "No protocol specified" "${target_dir}"
 	then
 		reportMessage \
 		"critical" \
@@ -1360,7 +1419,7 @@ runDcvgldiag()
 
 		if [ -f ${target_dir}/dcvgldiag.log ]
 		then
-			if cat ${target_dir}/dcvgldiag.log | egrep -iq "test result.*error"
+			if safeLogCheck "test result.*error" "${target_dir}/dcvgldiag.log"
 			then
 				cat ${target_dir}/dcvgldiag.log | tee -a $dcv_report_path > /dev/null
 				sed -i 's/Test Result: ERROR/[0;31mTest Result: ERROR[0m/g' $dcv_report_path
@@ -1375,7 +1434,7 @@ runDcvgldiag()
 			fi
 		fi
 
-        if cat ${target_dir}/dcvgldiag.log | egrep -iq "Test Result: ERROR"
+        if safeLogCheck "Test Result: ERROR" "${target_dir}/dcvgldiag.log"
         then
             dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
             echo "found >> $dcvgldiag_errors_count << tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
@@ -1452,7 +1511,48 @@ getSystemdData()
     echo "Collecting all SystemD relevant data..."
     target_dir="${temp_dir}/systemd_info/"
     sudo cp -a /etc/systemd/system/dcv*  ${target_dir}
+}
 
+getUsbData()
+{
+    echo "Collecting all OS USB relevant data..." | tee -a $dcv_report_path
+    target_dir="${temp_dir}/usb_data/"
+
+    if command_exists lsusb
+    then
+        sudo lsusb -v >> $target_dir/lsusb_-v.txt
+        sudo lsusb -t >> $target_dir/lsusb_-t.txt
+    fi
+
+    sudo find /sys/bus/usb/devices/ -name "product" -exec sh -c 'echo "=== $1 ==="; cat "$1"' _ {} \; > $target_dir/usb_products.txt
+    sudo find /sys/bus/usb/devices/ -name "manufacturer" -exec sh -c 'echo "=== $1 ==="; cat "$1"' _ {} \; > $target_dir/usb_manufacturers.txt
+    sudo find /sys/bus/usb/devices/ -name "serial" -exec sh -c 'echo "=== $1 ==="; cat "$1"' _ {} \; > $target_dir/usb_serials.txt
+    
+    if command_exists lspci
+    then
+        sudo lspci | grep -i usb > $target_dir/usb_controllers.txt
+        sudo cat /sys/kernel/debug/usb/devices > $target_dir/usb_debug_info.txt
+    fi
+
+    sudo journalctl -k | grep -i usb > $target_dir/usb_journal.txt
+
+    sudo ls -la /dev/bus/usb/*/* > $target_dir/usb_permissions.txt
+    sudo mount | grep usb > $target_dir/usb_mounts.txt
+    sudo lsblk > $target_dir/block_devices.txt
+
+    sudo find /sys/bus/usb/devices/ -name "power" -type d -exec sh -c 'echo "=== $1 ==="; find "$1" -type f -exec sh -c "echo \"{}: \"; cat \"{}\" 2>/dev/null || echo \"(unreadable)\"" \;' _ {} \; > $target_dir/usb_power_mgmt.txt
+
+    sudo lsmod | grep usb > $target_dir/usb_modules.txt
+    if command_exists modinfo
+    then
+        sudo modinfo usbcore > $target_dir/usbcore_info.txt
+    fi
+
+    if command_exists lshw
+    then
+        sudo lshw -class bus -class usb > $target_dir/hardware_usb.txt
+        sudo lshw -class bus -class usb > hardware_usb.txt
+    fi
 }
 
 getOsData()
@@ -1522,6 +1622,11 @@ getOsData()
         sudo cp -R /etc/modules* ${target_dir}/
     fi
 
+    if [ -d /etc/modules.d ]
+    then
+        sudo cp -R /etc/modules* ${target_dir}/
+    fi
+
     if [ -d /etc/modprobe.d/ ]
     then
         sudo cp -R /etc/modprobe* ${target_dir}/
@@ -1545,7 +1650,7 @@ getOsData()
     if [ -f ${target_dir}/deb_packages_list ]
     then
         pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
-        if cat ${target_dir}/deb_packages_list | egrep -iq "${pkg_names}"
+        if safeLogCheck "${pkg_names}" "${target_dir}/deb_packages_list"
         then
             cat ${target_dir}/deb_packages_list | egrep -iq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
         fi
@@ -1554,7 +1659,7 @@ getOsData()
     if [ -f ${target_dir}/rpm_packages_list ]
     then
         pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
-        if cat ${target_dir}/rpm_packages_list | egrep -iq "${pkg_names}"
+        if safeLogCheck "${pkg_names}" "${target_dir}/rpm_packages_list"
         then
             cat ${target_dir}/rpm_packages_list | egrep -iq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
         fi
@@ -1562,13 +1667,13 @@ getOsData()
 
     if [ -f $target_dir/dmesg ]
     then
-        if cat $target_dir/dmesg | egrep -i "oom" > /dev/null 2>&1
+        if safeLogCheck "oom" "$target_dir/dmesg"
         then
 			echo -e "${YELLOW}Possible OOM Killer events found... please check your /var/log/dmesg files${NC}" | tee -a $dcv_report_path
             cat $target_dir/dmesg | egrep -i "(oom|killed|killer)" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg > /dev/null
         fi
 
-        if cat $target_dir/dmesg | egrep -iq "(segfault|segmentation fault)" > /dev/null 2>&1
+        if safeLogCheck "(segfault|segmentation fault)" "$target_dir/dmesg"
         then
 			echo -e "${YELLOW}Segmentation fault events found... please check your /var/log/dmesg files${NC}" | tee -a $dcv_report_path
             cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found > /dev/null
@@ -1577,7 +1682,7 @@ getOsData()
 
     if [ -f $target_dir/messages ]
     then
-        if cat $target_dir/messages | egrep -iq "oom" > /dev/null 2>&1
+        if safeLogCheck "oom" "$target_dir/messages"
         then
 			reportMessage \
 			"critical" \
@@ -1597,11 +1702,12 @@ getOsData()
         fi
 
         echo "Checking for SELinux logs... if you have big log files, please wait for a moment..." | tee -a $dcv_report_path
-		
-        grep -i "selinux is preventing" $target_dir/messages* | grep -i "dcv" | while read -r line 
-        do
-            echo "$line" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
-        done
+        regular_expression="(selinux is preventing)"
+        regular_expression="(dcv.*${regular_expression}|${regular_expression}.*dcv)"
+        if safeLogCheck "$regular_expression" "$target_dir/messages*"
+        then
+            egrep -i "selinux is preventing" "$target_dir/messages*" | grep -i "dcv" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
+        fi
 		
 		if [ -f ${temp_dir}/warnings/selinux_is_preventing_dcv ] 
 		then
@@ -1636,7 +1742,7 @@ getOsData()
 	echo "Looking for OOM killer fault events"
 
     echo "Looking for segmentation fault events..."
-    if egrep -Riq "(segfault|segmentation fault)" ${target_dir}/* > /dev/null 2>&1
+    if safeLogCheck "(segfault|segmentation fault)" "${target_dir}"
     then
 		reportMessage \
 		"warning" \
@@ -1645,7 +1751,9 @@ getOsData()
 		"${dcv_report_text_about_segfault}" \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
 
-		if egrep -Ri "(segfault|segmentation fault)" ${target_dir}/* | egrep -iq "dcv" > /dev/null 2>&1
+        regular_expression="(segfault|segmentation fault)"
+        regular_expression="(dcv.*${regular_expression}|${regular_expression}.*dcv)"
+		if safeLogCheck "${regular_expression}" "${target_dir}"
 		then
         	egrep -Ri "(segfault|segmentation fault)" ${target_dir}/* | egrep -i "dcv" tee -a ${temp_dir}/warnings/segmentation_fault_found $dcv_report_path > /dev/null
 			reportMessage \
@@ -1655,7 +1763,6 @@ getOsData()
 			"${dcv_report_text_about_segfault}" \
 			"https://www.ni-sp.com/knowledge-base/dcv-general/common-problems-linux/#h-dcv-segmentation-fault"
 		fi
-
 	else
 		reportMessage \
 		"info" \
@@ -1665,7 +1772,24 @@ getOsData()
 		"null"
     fi
 
-	if egrep -Riq "Could not get tablet information for 'Xdcv eraser'" ${target_dir}/*
+    if safeLogCheck "unable to get EDID for output" "${target_dir}"
+    then
+		reportMessage \
+		"warning" \
+		"Unable to get EDID for output." \
+		"null" \
+		"This is not a critical event, but if you need to use EDID, you may need to provide a EDID file if your dislay is not capable to provide EDID data." \
+		"null"
+    else
+    	reportMessage \
+		"info" \
+		"Did not find isses to get EDID data." \
+		"null" \
+		"null" \
+		"null"
+    fi
+
+	if safeLogCheck "Could not get tablet information for 'Xdcv eraser'" "${target_dir}"
 	then
 		egrep -Ri "Could not get tablet information for 'Xdcv eraser'" ${target_dir}/* >> ${temp_dir}/warnings/Xdcv_errors
 		reportMessage \
@@ -1683,7 +1807,26 @@ getOsData()
 		"null"
 	fi
 
-	if egrep -Riq "gnome-.*Fatal IO error" ${target_dir}/*
+	if safeLogCheck "Fatal IO error.*X server" "${target_dir}"
+	then
+		reportMessage \
+        "critical" \
+        "Identified Fatal IO error with X server." \
+        "${temp_dir}/warnings/x_fatal_io_error" \
+        "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors." \
+		"null"
+		
+		egrep -Ri "Fatal IO error.*X server" ${target_dir}/* >> ${temp_dir}/warnings/x_fatal_io_error
+	else
+		reportMessage \
+		"info" \
+		"Did not find X IO error events." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if safeLogCheck "gnome-.*Fatal IO error" "${target_dir}"
 	then
 		reportMessage \
         "critical" \
@@ -1692,7 +1835,7 @@ getOsData()
         "There is a chance that you have a corrupted filesystem or volume. You need to check your filesystem and OS integrity to understand why you are getting I/O errors." \
 		"null"
 		
-		egrep -Ri "gnome-terminal-server.*Fatal IO error" ${target_dir}/* >> ${temp_dir}/warnings/gnome_fatal_io_error
+		egrep -Ri "gnome-.*Fatal IO error" ${target_dir}/* >> ${temp_dir}/warnings/gnome_fatal_io_error
 	else
 		reportMessage \
 		"info" \
@@ -1702,7 +1845,7 @@ getOsData()
 		"null"
 	fi
 
-	if egrep -Riq "BAR.*failed to assign" ${target_dir}/*
+	if safeLogCheck "BAR.*failed to assign" "${target_dir}"
 	then
         reportMessage \
         "warning" \
@@ -1711,7 +1854,7 @@ getOsData()
         "BAR stands for Base Address Register, which is a mechanism used by PCI devices to request memory or I/O space from the system. These errors typically occur when: (A) The system doesn't have enough I/O address space available to satisfy all PCI devices. (B) There might be conflicts between devices requesting the same resources. (C) The BIOS/UEFI didn't properly allocate or reserve the necessary resources. If you are using a virtualized environment with a lot of virtual devices, for example, is possible that your VM has not enough resources to support all devices, what can cause DCV issues, specially when GPU is being used. While these errors look concerning, they don't always cause functional problems. Many systems can still operate normally with some BAR allocation failures, as the kernel typically tries to work around these issues. " \
 		"null"
 		egrep -Ri "BAR.*failed to assign" ${target_dir}/* >> ${temp_dir}/warnings/bar_failures_found
-
+    else
 		reportMessage \
 		"info" \
 		"Did not find Base Address Register (BAR) failure events." \
@@ -1720,42 +1863,44 @@ getOsData()
 		"null"
 	fi
 
+    if command_exists nvidia-smi
+    then
+    	if safeLogCheck "NVIDIA.*Failed to bind sideband socket" "${target_dir}"
+    	then
+            reportMessage \
+            "warning" \
+            "NVIDIA: Failed to bind sideband socket" \
+            "${temp_dir}/warnings/nvidia_fail_to_bind" \
+            "The sideband socket is part of NVIDIA's driver communication system, used for exchanging information between different components of the graphics system. When this binding fails, it typically indicates: (A) A permission problem (the process doesn't have rights to access the socket). (B) The socket is already in use by another process. (C) The NVIDIA driver might be experiencing conflicts with other system components. You need to check if you have conflicting drivers." \
+    		"null"
 
-	if egrep -Riq "NVIDIA.*Failed to bind sideband socket" ${target_dir}/*
-	then
-        reportMessage \
-        "warning" \
-        "NVIDIA: Failed to bind sideband socket" \
-        "${temp_dir}/warnings/nvidia_fail_to_bind" \
-        "The sideband socket is part of NVIDIA's driver communication system, used for exchanging information between different components of the graphics system. When this binding fails, it typically indicates: (A) A permission problem (the process doesn't have rights to access the socket). (B) The socket is already in use by another process. (C) The NVIDIA driver might be experiencing conflicts with other system components. You need to check if you have conflicting drivers." \
-		"null"
+    		egrep -Ri "NVIDIA.*Failed to bind sideband socket" ${target_dir}/* >> ${temp_dir}/warnings/nvidia_fail_to_bind
+    	else
+    		reportMessage \
+    		"info" \
+    		"Did not find bind sideband socket failures related with NVIDIA driver." \
+    		"null" \
+    		"null" \
+    		"null"
+    	fi
 
-		egrep -Ri "NVIDIA.*Failed to bind sideband socket" ${target_dir}/* >> ${temp_dir}/warnings/nvidia_fail_to_bind
-	else
-		reportMessage \
-		"info" \
-		"Did not find bind sideband socket failures related with NVIDIA driver." \
-		"null" \
-		"null" \
-		"null"
-	fi
-
-	if egrep -Riq "Valid GRID license not found" ${temp_dir}/*
-	then
-		reportMessage \
-		"critical" \
-		"Valid GRID license not found." \
-		"${temp_dir}/warnings/nvidia_grid_license_not_found" \
-		"Your GPU card resources is being limited due no license installed. Please install the license to release all GPU resources." \
-		"https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-nvidia-limited-sessions-performance-after-some-sessions-created https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-valid-grid-license-not-found https://docs.nvidia.com/vgpu/15.0/grid-licensing-user-guide/index.html#configuring-nls-licensed-client"
-	else
-		reportMessage \
-		"info" \
-		"No NVIDIA grid license issue found." \
-		"null" \
-		"null" \
-		"null"
-	fi
+    	if safeLogCheck "Valid GRID license not found" "${temp_dir}"
+    	then
+    		reportMessage \
+    		"critical" \
+    		"Valid GRID license not found." \
+    		"${temp_dir}/warnings/nvidia_grid_license_not_found" \
+    		"Your GPU card resources is being limited due no license installed. Please install the license to release all GPU resources." \
+    		"https://www.ni-sp.com/knowledge-base/dcv-general/performance-guide/#h-nvidia-limited-sessions-performance-after-some-sessions-created https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-valid-grid-license-not-found https://docs.nvidia.com/vgpu/15.0/grid-licensing-user-guide/index.html#configuring-nls-licensed-client"
+    	else
+    		reportMessage \
+    		"info" \
+    		"No NVIDIA grid license issue found." \
+    		"null" \
+    		"null" \
+    		"null"
+    	fi
+    fi
 }
 
 getSmartInfo()
@@ -2015,6 +2160,13 @@ getXorgData()
 		"${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11" \
 		"You need to check xorg.conf.d of both directories (/etc/X11 and /usr/share/X11) and look for configuration files that can enter in conflict with yout environment. For example: radeon drivers being loaded with nvidia driver. We recommend to backup and remove all xorg.conf.d/* files and leave just the ones that you really need. Also, check your /var/log/Xorg.log* files to verify which directories are being loaded and which xorg.conf file is being used. Sometimes both xorg.conf.d are being loaded, causing issues to your X server." \
 		"null"
+    else
+        reportMessage \
+        "info" \
+        "/usr/share/X11 not found" \
+        "null" \
+        "null" \
+        "null"
     fi
 
     if ls /etc/X11/xorg.conf.d/*nvidia* &>/dev/null
@@ -2100,7 +2252,7 @@ getXorgData()
     fi
 
     detect_service=""
-    detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz" | egrep -iv "${NISPGMBHHASH}")
+    detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz" | egrep -iv "${SCRIPT_MARKER}")
     if [[ "${detect_service}x" != "x" ]]
     then
 		reportMessage \
@@ -2118,8 +2270,8 @@ getXorgData()
 		"https://docs.aws.amazon.com/dcv/latest/adminguide/doc-history-release-notes.html"
     fi
 
-    XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
-    x_display=$(sudo ps aux | egrep '([X]|[X]org|[X]wayland)' | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
+    XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | egrep -iv "${SCRIPT_MARKER}" | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
+    x_display=$(sudo ps aux | egrep '([X]|[X]org|[X]wayland)' | egrep -iv ${SCRIPT_MARKER} | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
     then
 		reportMessage \
@@ -2146,7 +2298,7 @@ getXorgData()
         fi
     fi
 
-	if egrep -Riq "Permission denied" ${target_dir}/*
+	if safeLogCheck "Permission denied" "${target_dir}"
 	then
 		reportMessage \
 		"critical" \
@@ -2155,7 +2307,7 @@ getXorgData()
 		"Please check the permissions errors found in your Xorg logs. If you are having permission video driver issues you probably will get performance problems or graphical issues with GNOME and Xorg." \
 		"null"
 
-		egrep -Riq "Permission denied" ${target_dir}/* >> ${temp_dir}/warnings/xorg_permission_denied
+		egrep -Ri "Permission denied" ${target_dir}/* >> ${temp_dir}/warnings/xorg_permission_denied
 	else
 		reportMessage \
 		"info" \
@@ -2165,7 +2317,7 @@ getXorgData()
 		"null"
 	fi
 
-	if egrep -Riq "Unable to get display device" ${target_dir}/*
+	if safeLogCheck "Unable to get display device" "${target_dir}"
 	then
 		reportMessage \
 		"warning" \
@@ -2173,7 +2325,7 @@ getXorgData()
 		"${temp_dir}/warnings/gpu_driver_unable_get_display_device" \
 		"You need to investigate why your GPU driver can not get the Display device data. (1) Usually if you are using the Xorg option UseDisplayDevice set as None, or (2) the server has physical connection issues, you will get this issue. (3) Permissions drivers problems can also cause the issue." \
 		"null"
-		egrep -Riq "Unable to get display device" >> ${temp_dir}/warnings/gpu_driver_unable_get_display_device
+		egrep -Ri "Unable to get display device" >> ${temp_dir}/warnings/gpu_driver_unable_get_display_device
 	else
 		reportMessage \
 		"info" \
@@ -2240,7 +2392,7 @@ getCronData()
 		sudo cp -a /var/spool/cron/* $target_dir
 	fi
 
-    if egrep -Riq "dcv" ${target_dir}/* > /dev/null 2>&1
+    if safeLogCheck "dcv" "${target_dir}"
     then    
         reportMessage \
         "warning" \
@@ -2359,10 +2511,26 @@ checkNetwork()
         fi
     fi
 
-	if command_exists netstat
-	then
-		sudo netstat -nlptu | tee ${target_dir}/network_netstat_nlptu > /dev/null
-	fi
+    if command_exists netstat
+    then
+        echo "Using netstat..."
+        sudo netstat -tulpn >> ${target_dir}/netstat_-tulpn
+    elif command_exists ss
+    then
+        echo "Using ss..."
+        sudo ss -tulpn >> ${target_dir}/ss_-tulpn
+    elif command_exists lsof
+    then
+        echo "Using lsof..."
+        sudo lsof -i -P -n | grep LISTEN >> ${target_dir}/lsof_-i_-P_-n
+    else
+        echo "None of the required commands (netstat, ss, lsof) are available."
+        echo "Falling back to /proc filesystem:"
+        echo "TCP ports:"
+        sudo cat /proc/net/tcp 2>/dev/null >> ${target_dir}/proc_net_tcp
+        echo "UDP ports:"
+        sudo cat /proc/net/udp 2>/dev/null ${target_dir}/proc_net_udp
+    fi
 }
 
 # global vars
@@ -2410,7 +2578,7 @@ display_manager_status="not running"
 local_storage_devices=""
 smart_disk_report=""
 smart_disk_warnings=""
-NISPGMBHHASH="NISPGMBHHASH"
+SCRIPT_MARKER="NISPGMBHHASH$(date +%s)$$"
 
 dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior."
 
@@ -2461,6 +2629,7 @@ main()
     getNsswitchData
 	getCronInfo
 	getCronData
+    getUsbData
 	checkNetwork
     getPamData
     getXorgData
