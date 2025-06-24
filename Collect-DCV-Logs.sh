@@ -1401,6 +1401,40 @@ getDcvData()
 		"null" \
 		"null"
 	fi
+
+	if safeLogCheck "Internal error:.*Could not resolve keysym" "${target_dir}"
+	then
+		reportMessage \
+		"warning" \
+		"Found X11 messages about not supported key codes." \
+		"null" \
+		"The keyboard layout configuration includes keycodes and key symbols that are either unsupported or unrecognized by your current X11/XKB setup. This typically occurs when there's a mismatch between the keyboard layout definition and the available symbol definitions in your system. These errors are generally non-critical. Your system will still function normally, but the affected special keys may not work as intended. For example, dedicated brightness control keys, WiFi toggle keys, or multimedia control buttons might be unresponsive." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"No issues found with X11 and XKB." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if safeLogCheck "Unable to read EDID for display device" "${target_dir}"
+	then
+		reportMessage \
+		"warning" \
+		"Unable to read EDID for display device." \
+		"null" \
+		"This is not necessarily an issue, but it can cause resolution and frequency limitations if EDID can not be provide. You can manually create a EDID file if your monitor can not provide or you are using virtual monitors." \
+		"null" \
+	else
+		reportMessage \
+		"info" \
+		"No issues found trying to read EDID configuration." \
+		"null" \
+		"null" \
+		"null"
+	fi
 }
 
 runDcvgldiag()
