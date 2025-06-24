@@ -14,6 +14,17 @@
 # deriving from the use or misuse of this information.
 ################################################################################
 
+getEtcAuthSelect()
+{   
+    if [ -d /etc/authselect ]
+    then
+        echo "Collecting /etc/authselect info..."
+        target_dir="${temp_dir}/authselect_conf/"
+ 
+        sudo cp -a /etc/authselect $target_dir
+    fi
+}
+
 safeLogCheck()
 {
     local pattern="$1"
@@ -529,7 +540,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data
+    for new_dir in kerberos_conf pam_conf authselect_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -2666,6 +2677,7 @@ main()
     getUsbData
 	checkNetwork
     getPamData
+    getEtcAuthSelect
     getXorgData
     getNvidiaInfo
     getDcvData

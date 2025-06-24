@@ -97,6 +97,7 @@ main()
     getUsbData
 	checkNetwork
     getPamData
+    getEtcAuthSelect
     getXorgData
     getNvidiaInfo
     getDcvData
