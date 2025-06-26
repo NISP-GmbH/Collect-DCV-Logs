@@ -540,7 +540,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf authselect_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data
+    for new_dir in kerberos_conf pam_conf authselect_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data dcv_management
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -2384,6 +2384,8 @@ getXorgData()
 checkDcvManagementLinux()
 {
 	echo "Checking if DCV Management Linux is present..." | tee -a $dcv_report_path
+	target_dir="${temp_dir}/dcv_management/"
+
 	if sudo systemctl list-unit-files --type=service | grep -qi "dcv-management"
 	then
 		if sudo systemctl is-enabled dcv-management &> /dev/null
@@ -2406,6 +2408,12 @@ checkDcvManagementLinux()
         "null" \
 		"null"
 	fi
+
+    for file_to_copy in /etc/dcv-management /etc/pam.d/dcv.custom /opt/dcv_api /usr/bin/dcv_collab_prompt /usr/bin/dcv_local_sessions /usr/bin/dcv_notify_users
+    do
+        sudo cp -a $file_to_copy ${target_dir}/
+        sudo chown $USER:$USER ${target_dir}/
+    done
 }
 
 getCronInfo()
