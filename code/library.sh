@@ -2378,19 +2378,31 @@ checkDcvManagementLinux()
 			if sudo systemctl is-active &> /dev/null
 			then
 				dcv_managament_text2="active"
+        		reportMessage \
+              	"info" \
+               	"DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
+                "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
+                "null" \
+        		"null"
 			else
 				dcv_managament_text2="not_active"
+        		reportMessage \
+              	"warning" \
+               	"DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
+                "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
+                "null" \
+        		"null"
 			fi
 		else
 			dcv_managament_text1="disabled"
+        	reportMessage \
+            "warning" \
+            "DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
+            "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
+            "null" \
+            "null"
 		fi
 
-		reportMessage \
-      	"info" \
-       	"DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
-        "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
-        "null" \
-		"null"
 	fi
 
     for file_to_copy in /etc/dcv-management /etc/pam.d/dcv.custom /opt/dcv_api /usr/bin/dcv_collab_prompt /usr/bin/dcv_local_sessions /usr/bin/dcv_notify_users
