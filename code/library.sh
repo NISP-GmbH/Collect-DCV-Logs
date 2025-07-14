@@ -2156,8 +2156,6 @@ getSmartWarnings()
 getXorgData()
 {
     echo "Collecting all Xorg relevant data..." | tee -a $dcv_report_path
-    target_dir="${temp_dir}/xorg_log/"
-    sudo cp -r /var/log/Xorg* $target_dir > /dev/null 2>&1
     
     target_dir="${temp_dir}/xorg_conf/"
 
@@ -2325,6 +2323,26 @@ getXorgData()
 				sudo -E DISPLAY=${x_display} glxinfo 2> >(tee "${target_dir}/opengl_errors" $dcv_report_path) | grep -i "opengl.*version" | tee "${target_dir}/opengl_version" $dcv_report_path
             fi
         fi
+    fi
+
+    target_dir="${temp_dir}/xorg_log/"
+    sudo cp -r /var/log/Xorg* $target_dir > /dev/null 2>&1
+
+    if safeLogCheck "systemd-logind: failed to release device: You are not in control of this session"
+    then
+		reportMessage \
+		"critical" \
+		"Found systemd-logind failure to release devices." \
+		"${temp_dir}/warnings/systemd_logind_failed_to_release_device" \
+		"systemd-logind rejects the request because it doesn't recognize the current session as having control over that device." \
+		"(1) Check if you are running other remote desktop solutions. Disable and stop them and restart your environment. (2) NVIDIA driver corruption or misconfiguration can cause this. (3) If the maximum number of X display failures reached, it can be related with this error."
+    else
+		reportMessage \
+		"info" \
+		"Did not find systemd-logind issue to release devices." \
+		"null" \
+		"null" \
+		"null"
     fi
 
 	if safeLogCheck "Permission denied" "${target_dir}"
