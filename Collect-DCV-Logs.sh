@@ -14,6 +14,17 @@
 # deriving from the use or misuse of this information.
 ################################################################################
 
+getEtcAuthSelect()
+{   
+    if [ -d /etc/authselect ]
+    then
+        echo "Collecting /etc/authselect info..."
+        target_dir="${temp_dir}/authselect_conf/"
+ 
+        sudo cp -a /etc/authselect $target_dir
+    fi
+}
+
 safeLogCheck()
 {
     local pattern="$1"
@@ -529,7 +540,7 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
-    for new_dir in kerberos_conf pam_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data
+    for new_dir in kerberos_conf pam_conf authselect_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data dcv_management
     do
         sudo mkdir -p ${temp_dir}/$new_dir
     done
@@ -1253,7 +1264,7 @@ getDcvData()
     fi
 
 	echo "Checking if CPU is being used..." | tee -a $dcv_report_path
-    if safeLogChek "info: using cpu capabilities" "${target_dir}"
+    if safeLogCheck "info: using cpu capabilities" "${target_dir}"
     then
 		reportMessage \
 		"warning" \
@@ -1397,6 +1408,40 @@ getDcvData()
 		reportMessage \
 		"info" \
 		"No issues with X and DCV agent permissions." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if safeLogCheck "Internal error:.*Could not resolve keysym" "${target_dir}"
+	then
+		reportMessage \
+		"warning" \
+		"Found X11 messages about not supported key codes." \
+		"null" \
+		"The keyboard layout configuration includes keycodes and key symbols that are either unsupported or unrecognized by your current X11/XKB setup. This typically occurs when there's a mismatch between the keyboard layout definition and the available symbol definitions in your system. These errors are generally non-critical. Your system will still function normally, but the affected special keys may not work as intended. For example, dedicated brightness control keys, WiFi toggle keys, or multimedia control buttons might be unresponsive." \
+		"null"
+	else
+		reportMessage \
+		"info" \
+		"No issues found with X11 and XKB." \
+		"null" \
+		"null" \
+		"null"
+	fi
+
+	if safeLogCheck "Unable to read EDID for display device" "${target_dir}"
+	then
+		reportMessage \
+		"warning" \
+		"Unable to read EDID for display device." \
+		"null" \
+		"This is not necessarily an issue, but it can cause resolution and frequency limitations if EDID can not be provide. You can manually create a EDID file if your monitor can not provide or you are using virtual monitors." \
+		"null" \
+	else
+		reportMessage \
+		"info" \
+		"No issues found trying to read EDID configuration." \
 		"null" \
 		"null" \
 		"null"
@@ -2127,8 +2172,6 @@ getSmartWarnings()
 getXorgData()
 {
     echo "Collecting all Xorg relevant data..." | tee -a $dcv_report_path
-    target_dir="${temp_dir}/xorg_log/"
-    sudo cp -r /var/log/Xorg* $target_dir > /dev/null 2>&1
     
     target_dir="${temp_dir}/xorg_conf/"
 
@@ -2298,6 +2341,26 @@ getXorgData()
         fi
     fi
 
+    target_dir="${temp_dir}/xorg_log/"
+    sudo cp -r /var/log/Xorg* $target_dir > /dev/null 2>&1
+
+    if safeLogCheck "systemd-logind: failed to release device: You are not in control of this session"
+    then
+		reportMessage \
+		"critical" \
+		"Found systemd-logind failure to release devices." \
+		"${temp_dir}/warnings/systemd_logind_failed_to_release_device" \
+		"systemd-logind rejects the request because it doesn't recognize the current session as having control over that device." \
+		"(1) Check if you are running other remote desktop solutions. Disable and stop them and restart your environment. (2) NVIDIA driver corruption or misconfiguration can cause this. (3) If the maximum number of X display failures reached, it can be related with this error."
+    else
+		reportMessage \
+		"info" \
+		"Did not find systemd-logind issue to release devices." \
+		"null" \
+		"null" \
+		"null"
+    fi
+
 	if safeLogCheck "Permission denied" "${target_dir}"
 	then
 		reportMessage \
@@ -2339,6 +2402,8 @@ getXorgData()
 checkDcvManagementLinux()
 {
 	echo "Checking if DCV Management Linux is present..." | tee -a $dcv_report_path
+	target_dir="${temp_dir}/dcv_management/"
+
 	if sudo systemctl list-unit-files --type=service | grep -qi "dcv-management"
 	then
 		if sudo systemctl is-enabled dcv-management &> /dev/null
@@ -2347,20 +2412,38 @@ checkDcvManagementLinux()
 			if sudo systemctl is-active &> /dev/null
 			then
 				dcv_managament_text2="active"
+        		reportMessage \
+              	"info" \
+               	"DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
+                "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
+                "null" \
+        		"null"
 			else
 				dcv_managament_text2="not_active"
+        		reportMessage \
+              	"warning" \
+               	"DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
+                "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
+                "null" \
+        		"null"
 			fi
 		else
 			dcv_managament_text1="disabled"
+        	reportMessage \
+            "warning" \
+            "DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
+            "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
+            "null" \
+            "null"
 		fi
 
-		reportMessage \
-      	"info" \
-       	"DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
-        "${temp_dir}/warnings/dcv_management_linux_${dcv_managament_text1}_and_${dcv_managament_text2}" \
-        "null" \
-		"null"
 	fi
+
+    for file_to_copy in /etc/dcv-management /etc/pam.d/dcv.custom /opt/dcv_api /usr/bin/dcv_collab_prompt /usr/bin/dcv_local_sessions /usr/bin/dcv_notify_users
+    do
+        sudo cp -a $file_to_copy ${target_dir}/
+        sudo chown $USER:$USER ${target_dir}/
+    done
 }
 
 getCronInfo()
@@ -2632,6 +2715,7 @@ main()
     getUsbData
 	checkNetwork
     getPamData
+    getEtcAuthSelect
     getXorgData
     getNvidiaInfo
     getDcvData
