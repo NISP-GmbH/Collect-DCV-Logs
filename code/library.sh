@@ -1248,7 +1248,7 @@ getDcvData()
     fi
 
 	echo "Checking if CPU is being used..." | tee -a $dcv_report_path
-    if safeLogChek "info: using cpu capabilities" "${target_dir}"
+    if safeLogCheck "info: using cpu capabilities" "${target_dir}"
     then
 		reportMessage \
 		"warning" \
