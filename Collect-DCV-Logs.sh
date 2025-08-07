@@ -1649,7 +1649,7 @@ getOsData()
 
     if command_exists dpkg
     then
-        sudo dpkg -a > ${target_dir}/deb_packages_list 2>&1
+        sudo dpkg -l > ${target_dir}/deb_packages_list 2>&1
     fi
 
     if command_exists rpm
