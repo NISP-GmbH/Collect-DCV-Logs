@@ -1104,7 +1104,25 @@ getDcvData()
 		"null" \
 		"null"
     fi
-    
+
+    echo "Checking for TLS auth-verifier issues..." | tee -a $dcv_report_path
+    if safeLogCheck ".*error in the auth token verifier: Error performing TLS.*" "${target_dir}/dcv/server*"
+    then
+		reportMessage \
+		"critical" \
+		"Found TLS check error for auth-token-verifier config." \
+		"${temp_dir}/warnings/auth-token-verifier_tls_check_error" \
+		"You need setup a trusted cert in the Auth server or ignore the TLS check." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/authentication/#undefined"
+	else
+		reportMessage \
+		"info" \
+		"Did not find auth-token-verifier TLS issues." \
+		"null" \
+		"null" \
+		"null"
+    fi
+   
     echo "Checking for RLM permission issues..." | tee -a $dcv_report_path
     if safeLogCheck ".*RLM Initialization.*failed.*permission denied.*13.*" "${target_dir}/dcv/server*"
     then
