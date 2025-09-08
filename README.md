@@ -7,7 +7,7 @@ It will also create a report about a checklist of most common questions.
 # How to execute:
 
 ```bash
-sudo bash -c "$(wget --no-check-certificate -qO- https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh)"
+wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash Collect-DCV-Logs.sh
 ```
 
 # Notes 
@@ -21,10 +21,10 @@ You can execute the script without interaction using the parameters below.
 
 ```bash
 # For report-only mode
-wget --no-check-certificate -qO /tmp/Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash /tmp/Collect-DCV-Logs.sh --report-only
+wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash Collect-DCV-Logs.sh --report-only
 
 # For collect-logs mode
-wget --no-check-certificate -qO /tmp/Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash /tmp/Collect-DCV-Logs.sh --collect-logs
+wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash Collect-DCV-Logs.sh --collect-logs
 
 ```
 
