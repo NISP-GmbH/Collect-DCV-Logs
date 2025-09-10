@@ -44,6 +44,7 @@ local_storage_devices=""
 smart_disk_report=""
 smart_disk_warnings=""
 SCRIPT_MARKER="NISPGMBHHASH$(date +%s)$$"
+HTML_TEXTAREA_COUNTER=0
 
 dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior."
 
