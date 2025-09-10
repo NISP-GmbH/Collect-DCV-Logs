@@ -2761,9 +2761,9 @@ checkDcvManagementLinux()
 
     for file_to_copy in /etc/dcv-management /etc/pam.d/dcv.custom /opt/dcv_api /usr/bin/dcv_collab_prompt /usr/bin/dcv_local_sessions /usr/bin/dcv_notify_users
     do
-        sudo cp -a $file_to_copy ${target_dir}/
-        sudo chown $USER:$USER ${target_dir}/
+        sudo cp -a $file_to_copy ${target_dir}/ > /dev/null 2>&1
     done
+    sudo chown -R $USER:$USER ${target_dir}/
 }
 
 getCronInfo()
