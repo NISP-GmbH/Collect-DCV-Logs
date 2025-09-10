@@ -956,10 +956,12 @@ getSddmData()
 {
     echo "Collecting all SDDM relevant info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/sddm_conf/"
-	sudo cp -r /etc/sddm* $target_dir
+    
+    sudo cp -r /etc/sddm* $target_dir > /dev/null 2>&1
 	
     target_dir="${temp_dir}/sddm_log/"
-	sudo cp -r /var/log/sddm* $target_dir
+    	sudo cp -r /var/log/sddm* $target_dir > /dev/null 2>&1
+
 	sudo journalctl -u sddm.service > ${target_dir}/journal_sddm
 
 	lookForDmIssues	$target_dir ${temp_dir}/warnings/
@@ -969,10 +971,13 @@ getLightdmData()
 {
     echo "Collecting all LIGHTDM relevant info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/lightdm_conf/"
-	sudo cp -r /etc/lightdm* $target_dir
+
+    sudo cp -r /etc/lightdm* $target_dir > /dev/null 2>&1
 
     target_dir="${temp_dir}/lightdm_log/"
-	sudo cp -r /var/log/lightdm* $target_dir
+
+    sudo cp -r /var/log/lightdm* $target_dir
+
 	sudo journalctl -u lightdm.service > ${target_dir}/journal_sddm
 
 	lookForDmIssues	$target_dir ${temp_dir}/warnings/
@@ -1763,7 +1768,7 @@ getSystemdData()
 {
     echo "Collecting all SystemD relevant data..."
     target_dir="${temp_dir}/systemd_info/"
-    sudo cp -a /etc/systemd/system/dcv*  ${target_dir}
+    sudo cp -a /etc/systemd/system/dcv*  ${target_dir} > /dev/null 2>&1
 }
 
 getUsbData()
