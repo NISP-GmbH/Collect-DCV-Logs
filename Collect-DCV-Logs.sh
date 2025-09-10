@@ -898,9 +898,9 @@ lookForDmIssues()
 	then
 		reportMessage \
 		"warning" \
-		"Found some unusual error/fail/deny/timeout in SDDM logs." \
+		"Found some unusual error/fail/deny/timeout in your Display Manager logs." \
 		"${temp_dir}/warnings/${display_manager_name}_errors" \
-		"Look our tutorial about how to correctly build SDDM environment in:" \
+		"Look our tutorial about how to correctly build Display Manager environment in:" \
 		"https://www.ni-sp.com/knowledge-base/dcv-general/kde-gnome-mate-and-others/" \
         "$log_dir_to_look" \
         "$regular_expression"
@@ -924,7 +924,7 @@ lookForDmIssues()
 	else
 		reportMessage \
 		"info" \
-		"No relevant error found in hte log ${log_dir_to_look}." \
+		"No relevant error found in Display Manager logs ${log_dir_to_look}." \
 		"null" \
 		"null" \
 		"null" \
