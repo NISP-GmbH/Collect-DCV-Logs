@@ -2789,12 +2789,12 @@ getCronInfo()
 	
 	if [ -f /var/log/cron ]
 	then
-		sudo cp -a /var/log/cron* $target_dir
+		sudo cp -a /var/log/cron* $target_dir > /dev/null 2>&1
 	fi
 
 	if [ -f /var/log/crond ]
 	then
-		sudo cp -a /var/log/cron* $target_dir
+		sudo cp -a /var/log/cron* $target_dir > /dev/null 2>&1
 	fi
 	
 	sudo journalctl -u cron.service > ${target_dir}/journal_cron
