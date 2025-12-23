@@ -559,6 +559,7 @@ uploadLogCollection()
     echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to NISP Support Team...${NC}"
     # Send service type (dcv) and identifier along with the file as required by upload.php
     curl_response=$(curl -s -w "\n%{http_code}" -F "service=dcv" -F "identifier=${identifier_string}" -F "file=@${encrypted_file_name}" "${upload_url}")
+
     if [ $? -ne 0 ]
     then
         echo "Failed to upload the file!"
