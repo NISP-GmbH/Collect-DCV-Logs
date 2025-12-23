@@ -414,8 +414,16 @@ welcomeMessage()
     		echo -e "${GREEN}In the end an encrypted file will be created, then it will be securely uploaded to NISP and a notification will be sent to NISP Support Team.${NC}"
     		echo "If you do not have internet acess when executing this script, you will have an option to store the file in the end."
 
-    		echo "Write any text that will identify you for NISP Support Team. Can be e-mail, name, e-mail subject, company name etc."
-		    read identifier_string
+    		# Identifier is mandatory for upload
+    		while true; do
+    			echo -e "${YELLOW}[REQUIRED]${NC} Write any text that will identify you for NISP Support Team. Can be e-mail, name, e-mail subject, company name etc."
+		    	read identifier_string
+		    	if [ -n "$identifier_string" ]; then
+		    		break
+		    	else
+		    		echo -e "${RED}ERROR: Identifier is mandatory for upload. Please provide an identifier.${NC}"
+		    	fi
+		    done
 		;;
 	esac
 }
@@ -549,7 +557,8 @@ uploadLogCollection()
 	fi
 
     echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to NISP Support Team...${NC}"
-    curl_response=$(curl -s -w "\n%{http_code}" -F "file=@${encrypted_file_name}" "${upload_url}")
+    # Send service type (dcv) and identifier along with the file as required by upload.php
+    curl_response=$(curl -s -w "\n%{http_code}" -F "service=dcv" -F "identifier=${identifier_string}" -F "file=@${encrypted_file_name}" "${upload_url}")
     if [ $? -ne 0 ]
     then
         echo "Failed to upload the file!"
