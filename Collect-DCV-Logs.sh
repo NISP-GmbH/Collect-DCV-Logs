@@ -1529,7 +1529,7 @@ getDcvData()
         "null"
 	fi
 
-	log_files=$(find -iname "agent.*.log*" 2>/dev/null)
+	log_files=$(find /var/log/dcv/ -iname "agent.*.log*" 2>/dev/null)
 	unique_usernames=()
 
 	for file in $log_files; do
