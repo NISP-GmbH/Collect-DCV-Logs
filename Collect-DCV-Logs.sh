@@ -607,6 +607,12 @@ uploadLogCollection()
 		return
 	fi
 
+    curl_proxy_opt=""
+    if [ -n "$proxy_url" ]; then
+        curl_proxy_opt="--proxy ${proxy_url}"
+        echo -e "${GREEN}Using proxy: ${YELLOW}${proxy_url}${NC}"
+    fi
+
     if $without_encryption
     then
         echo -e "${YELLOW}Uploading the file (unencrypted) to NI SP Support Team...${NC}"
@@ -614,7 +620,7 @@ uploadLogCollection()
         echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to NI SP Support Team...${NC}"
     fi
     # Send service type (dcv) and identifier along with the file as required by upload.php
-    curl_response=$(curl -s -w "\n%{http_code}" -F "service=dcv" -F "identifier=${identifier_string}" -F "file=@${upload_file}" "${upload_url}")
+    curl_response=$(curl $curl_proxy_opt -s -w "\n%{http_code}" -F "service=dcv" -F "identifier=${identifier_string}" -F "file=@${upload_file}" "${upload_url}")
 
     if [ $? -ne 0 ]
     then
@@ -625,7 +631,7 @@ uploadLogCollection()
         curl_http_body=$(echo $curl_response | cut -d' ' -f1)
         curl_http_status=$(echo $curl_response | cut -d' ' -f2)
         curl_filename=$(echo "$curl_http_body" | tr -d '\r\n')
-        curl_response=$(curl -s -w "\n%{http_code}" -X POST --data-urlencode "encrypt_password=${encrypt_password}" --data-urlencode "curl_filename=${curl_filename}" --data-urlencode "identifier_string=${identifier_string}" "$notify_url")
+        curl_response=$(curl $curl_proxy_opt -s -w "\n%{http_code}" -X POST --data-urlencode "encrypt_password=${encrypt_password}" --data-urlencode "curl_filename=${curl_filename}" --data-urlencode "identifier_string=${identifier_string}" "$notify_url")
         if [ $? -ne 0 ]
         then
             echo "Failed to notificate the NI SP Support Team about the uploaded file. Please send an e-mail."
@@ -3073,6 +3079,7 @@ collect_log_only="false"
 without_encryption="false"
 without_upload="false"
 without_compression="false"
+proxy_url=""
 identifier_message=""
 output_dir_name="dcv_logs_collection"
 option_selected="1"
@@ -3110,6 +3117,8 @@ showHelp()
 	echo "  --without-encryption    Create compressed file without GPG encryption"
 	echo "  --without-upload        Skip upload, keep file locally for manual upload"
 	echo "  --without-compression   Skip compression, keep collected logs as a directory"
+	echo "  --proxy \"url\"           Use a proxy for uploading (e.g. http://proxy:8080,"
+	echo "                          socks5://proxy:1080)"
 	echo "  --message \"text\"        Identifier text for NI SP Support Team (e.g. e-mail,"
 	echo "                          name, company). Skips the interactive prompt"
 	echo ""
@@ -3148,6 +3157,10 @@ do
 			without_compression=true
 			without_encryption=true
 			without_upload=true
+		;;
+		--proxy)
+			shift
+			proxy_url="$1"
 		;;
 		--message)
 			shift

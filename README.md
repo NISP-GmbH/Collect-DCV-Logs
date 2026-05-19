@@ -42,4 +42,5 @@ wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent
 | `--without-encryption` | Create the compressed file without GPG encryption. The `.tar.gz` file will not be encrypted with a passphrase |
 | `--without-upload` | Skip the automatic upload to NI-SP. The file is preserved locally. You can then manually upload it to https://ni-sp.com:9443/ and send the generated link to NISP Support Team |
 | `--without-compression` | Skip compression and keep the collected logs as a directory (`dcv_logs_collection/`). Implies `--without-encryption` and `--without-upload` |
+| `--proxy "url"` | Use a proxy for uploading the file. Supports HTTP, HTTPS, and SOCKS proxies (e.g. `http://proxy:8080`, `socks5://proxy:1080`) |
 | `--message "text"` | Provide the identifier text for NISP Support Team (e.g. e-mail, name, company name). Skips the interactive prompt that asks for this information |
