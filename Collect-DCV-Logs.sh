@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# Copyright (C) 2019-2024 NI SP GmbH
+# Copyright (C) 2019-2026 NI SP GmbH
 # All Rights Reserved
 #
 # info@ni-sp.com / www.ni-sp.com
@@ -78,7 +78,7 @@ doHtmlReport()
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NISP Report</title>
+    <title>NI SP Report</title>
     <style>
         :root {
             --critical-color: red;
@@ -212,7 +212,7 @@ doHtmlReport()
 </head>
 <body>
     <header>
-        <h1>NISP DCV Server Report</h1>
+        <h1>NI SP DCV Server Report</h1>
         <div class="support-info">
             <p>If you need support:</p>
 			<p> <a href="https://www.ni-sp.com/support/" target="_blank">https://www.ni-sp.com/support/</a></p>
@@ -379,18 +379,18 @@ welcomeMessage()
     echo "#################################################"
 
 	option_selected=""
-	if [[ "$collect_log_only" == "false" && "$report_only" == "false" ]]
+	if [[ "$collect_log_only" == "false" && "$report_only" == "false" && -z "$identifier_message" && "$without_upload" == "false" && "$without_encryption" == "false" ]]
 	then
 		echo -e "${GREEN}Select which option do you want to proceed:${NC}"
 		echo -e "${GREEN}(1)${NC} Create a report that will look for common issues"
-		echo -e "${GREEN}(2)${NC} Collect relevant logs to send to NISP Support Team"
+		echo -e "${GREEN}(2)${NC} Collect relevant logs to send to NI SP Support Team"
 		echo -e "${GREEN}Please type 1 or 2:${NC}"
 	    read option_selected
 
 		if ! echo $option_selected | egrep -iq "^(1|2)$"
 		then
 			echo "Option >> $option_selected << invalid. Exiting..."
-			exit 24	
+			exit 24
 		fi
 	elif [[ "$collect_log_only" == "true" && "$report_only" == "false" ]]
 	then
@@ -411,19 +411,31 @@ welcomeMessage()
 			report_only="true"
 		;;
 		2)
-    		echo -e "${GREEN}In the end an encrypted file will be created, then it will be securely uploaded to NISP and a notification will be sent to NISP Support Team.${NC}"
+			if $without_encryption
+			then
+				echo -e "${GREEN}In the end a compressed file will be created (without encryption), then it will be uploaded to NI SP and a notification will be sent to NI SP Support Team.${NC}"
+			else
+    			echo -e "${GREEN}In the end an encrypted file will be created, then it will be securely uploaded to NI SP and a notification will be sent to NI SP Support Team.${NC}"
+			fi
     		echo "If you do not have internet acess when executing this script, you will have an option to store the file in the end."
 
-    		# Identifier is mandatory for upload
-    		while true; do
-    			echo -e "${YELLOW}[REQUIRED]${NC} Write any text that will identify you for NISP Support Team. Can be e-mail, name, e-mail subject, company name etc."
-		    	read identifier_string
-		    	if [ -n "$identifier_string" ]; then
-		    		break
-		    	else
-		    		echo -e "${RED}ERROR: Identifier is mandatory for upload. Please provide an identifier.${NC}"
-		    	fi
-		    done
+    		# Identifier is mandatory for upload (not needed with --without-upload)
+			if $without_upload; then
+				identifier_string="${identifier_message}"
+			elif [ -n "$identifier_message" ]; then
+				identifier_string="$identifier_message"
+				echo -e "${GREEN}Using provided identifier: ${identifier_string}${NC}"
+			else
+    			while true; do
+    				echo -e "${YELLOW}[REQUIRED]${NC} Write any text that will identify you for NI SP Support Team. Can be e-mail, name, e-mail subject, company name etc."
+		    		read identifier_string
+		    		if [ -n "$identifier_string" ]; then
+		    			break
+		    		else
+		    			echo -e "${RED}ERROR: Identifier is mandatory for upload. Please provide an identifier.${NC}"
+		    		fi
+		    	done
+			fi
 		;;
 	esac
 }
@@ -536,6 +548,13 @@ compressLogCollection()
 		return
 	fi
 
+	if $without_compression
+	then
+		mv "$temp_dir" "$output_dir_name"
+		echo -e "${GREEN}Logs saved to directory: ${YELLOW}${output_dir_name}/${NC}"
+		return
+	fi
+
     tar czf $compressed_file_name $temp_dir
 }
 
@@ -543,6 +562,12 @@ encryptLogCollection()
 {
 	if $report_only
 	then
+		return
+	fi
+
+	if $without_encryption
+	then
+		echo -e "${YELLOW}Skipping encryption as requested (--without-encryption).${NC}"
 		return
 	fi
 
@@ -556,9 +581,40 @@ uploadLogCollection()
 		return
 	fi
 
-    echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to NISP Support Team...${NC}"
+	if $without_compression
+	then
+		upload_file="${output_dir_name}"
+	elif $without_encryption
+	then
+		upload_file="${compressed_file_name}"
+	else
+		upload_file="${encrypted_file_name}"
+	fi
+
+	if $without_upload
+	then
+		echo -e "${GREEN}#########################################################################${NC}"
+		echo -e "${GREEN}Upload was skipped as requested (--without-upload).${NC}"
+		if $without_compression
+		then
+			echo -e "${GREEN}The logs were saved locally in directory: ${YELLOW}${output_dir_name}/${NC}"
+		else
+			echo -e "${GREEN}The file was saved locally as: ${YELLOW}${upload_file}${NC}"
+		fi
+		echo -e "${GREEN}Please upload it manually to: ${YELLOW}https://ni-sp.com:9443/${NC}"
+		echo -e "${GREEN}After uploading, copy the generated link and send it to NI SP Support Team.${NC}"
+		echo -e "${GREEN}#########################################################################${NC}"
+		return
+	fi
+
+    if $without_encryption
+    then
+        echo -e "${YELLOW}Uploading the file (unencrypted) to NI SP Support Team...${NC}"
+    else
+        echo -e "${GREEN}${BOLD}Securely${NC}${GREEN} uploading the file to NI SP Support Team...${NC}"
+    fi
     # Send service type (dcv) and identifier along with the file as required by upload.php
-    curl_response=$(curl -s -w "\n%{http_code}" -F "service=dcv" -F "identifier=${identifier_string}" -F "file=@${encrypted_file_name}" "${upload_url}")
+    curl_response=$(curl -s -w "\n%{http_code}" -F "service=dcv" -F "identifier=${identifier_string}" -F "file=@${upload_file}" "${upload_url}")
 
     if [ $? -ne 0 ]
     then
@@ -572,9 +628,9 @@ uploadLogCollection()
         curl_response=$(curl -s -w "\n%{http_code}" -X POST --data-urlencode "encrypt_password=${encrypt_password}" --data-urlencode "curl_filename=${curl_filename}" --data-urlencode "identifier_string=${identifier_string}" "$notify_url")
         if [ $? -ne 0 ]
         then
-            echo "Failed to notificate the NISP Support Team about the uploaded file. Please send an e-mail."
+            echo "Failed to notificate the NI SP Support Team about the uploaded file. Please send an e-mail."
         else
-            echo -e "${GREEN}NISP Support Team was notified about the file!${NC}"
+            echo -e "${GREEN}NI SP Support Team was notified about the file!${NC}"
         fi
     fi
 }
@@ -582,6 +638,11 @@ uploadLogCollection()
 removeTempFiles()
 {
     echo "Cleaning temp files..."
+
+	if $without_compression
+	then
+		return
+	fi
 
 	if [ -d $temp_dir ]
 	then
@@ -610,10 +671,10 @@ removeTempFiles()
 		rm -f $encrypted_file_name
 	fi
 
-	if ! $report_only
+	if ! $report_only && ! $without_upload
 	then
 	    echo -e "${GREEN}Do you want to delete the ${compressed_file_name}?${NC}"
-	    echo "If you have no internet to upload the file, you can manually send to NISP Support Team."
+	    echo "If you have no internet to upload the file, you can manually send to NI SP Support Team."
 	    echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
 	    read user_answer
 
@@ -1492,7 +1553,7 @@ getDcvData()
         "critical" \
         "You have a license issue. Your current license is expired or does not support your current DCV version." \
         "${temp_dir}/warnings/dcv_license_version_failure" \
-        "Please contact the NISP support to check how this can be solved." \
+        "Please contact the NI SP support to check how this can be solved." \
 		"https://www.ni-sp.com/support/" \
         "${target_dir}" \
         "${string_pattern}"
@@ -1514,7 +1575,7 @@ getDcvData()
         "critical" \
         "Your DCV server can not close some sessions." \
         "${temp_dir}/warnings/dcv_server_can_not_close_session" \
-        "Please contact the NISP support to check how this can be solved:" \
+        "Please contact the NI SP support to check how this can be solved:" \
 		"https://www.ni-sp.com/support/" \
         "${target_dir}" \
         "${string_pattern}"
@@ -3009,6 +3070,11 @@ redhat_distro_based_version=""
 force_flag="false"
 report_only="false"
 collect_log_only="false"
+without_encryption="false"
+without_upload="false"
+without_compression="false"
+identifier_message=""
+output_dir_name="dcv_logs_collection"
 option_selected="1"
 dcv_report_dir_name="dcv_report"
 dcv_report_file_name="dcv_report.txt"
@@ -3030,11 +3096,41 @@ HTML_TEXTAREA_COUNTER=0
 
 dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior."
 
-for arg in "$@"
+showHelp()
+{
+	echo "Usage: $(basename $0) [OPTIONS]"
+	echo ""
+	echo "NI SP DCV Installation Checker - Collects DCV logs and generates reports."
+	echo ""
+	echo "Options:"
+	echo "  -h, --help              Show this help message and exit"
+	echo "  --force                 Skip Linux distribution compatibility check"
+	echo "  --report-only           Only generate the report without collecting logs"
+	echo "  --collect-logs          Only collect logs without interactive menu"
+	echo "  --without-encryption    Create compressed file without GPG encryption"
+	echo "  --without-upload        Skip upload, keep file locally for manual upload"
+	echo "  --without-compression   Skip compression, keep collected logs as a directory"
+	echo "  --message \"text\"        Identifier text for NI SP Support Team (e.g. e-mail,"
+	echo "                          name, company). Skips the interactive prompt"
+	echo ""
+	echo "Examples:"
+	echo "  $(basename $0)                        Interactive mode"
+	echo "  $(basename $0) --report-only          Generate report only"
+	echo "  $(basename $0) --collect-logs          Collect logs and upload"
+	echo "  $(basename $0) --without-encryption    Collect logs without encryption"
+	echo "  $(basename $0) --without-upload        Collect logs without uploading"
+	echo "  $(basename $0) --force --collect-logs  Skip distro check, collect logs"
+	exit 0
+}
+
+while [ $# -gt 0 ]
 do
-	case $arg in
+	case $1 in
+		-h|--help)
+			showHelp
+		;;
 		--force)
-        	force_flag=true
+			force_flag=true
 		;;
 		--report-only)
 			report_only=true
@@ -3042,7 +3138,23 @@ do
 		--collect-logs)
 			collect_log_only=true
 		;;
+		--without-encryption)
+			without_encryption=true
+		;;
+		--without-upload)
+			without_upload=true
+		;;
+		--without-compression)
+			without_compression=true
+			without_encryption=true
+			without_upload=true
+		;;
+		--message)
+			shift
+			identifier_message="$1"
+		;;
 	esac
+	shift
 done
 
 main()

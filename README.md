@@ -17,7 +17,7 @@ wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent
 
 # Advanced parameters
 
-You can execute the script without interaction using the parameters below.
+You can execute the script without interaction using the parameters below. Use `-h` or `--help` to see all available options.
 
 ```bash
 # For report-only mode
@@ -26,9 +26,20 @@ wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent
 # For collect-logs mode
 wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash Collect-DCV-Logs.sh --collect-logs
 
+# Collect logs without encryption and without upload
+wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash Collect-DCV-Logs.sh --collect-logs --without-encryption --without-upload
+
+# Fully non-interactive example
+wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent.com/NISP-GmbH/Collect-DCV-Logs/main/Collect-DCV-Logs.sh && sudo bash Collect-DCV-Logs.sh --collect-logs --message "John Doe - ACME Corp"
 ```
 
-- **--report-only :** It will just create a report. This is ideal if you want to fastly test most common messages from EF Portal logs. This mode it **it will not collect** any log from your server, which means that you can share without concern. All issues found will point to a possible causes and solutions.
-- **--collect-logs:** It will collect most relevant logs and it will also create the report. This is the best mode when you need help from NI-SP support, as we need to check deeply your logs.
-
-
+| Parameter | Description |
+|---|---|
+| `-h`, `--help` | Show help message with all available options and exit |
+| `--force` | Skip Linux distribution compatibility check. Use this if your OS is not officially supported |
+| `--report-only` | Only generate the report without collecting logs. Ideal for quickly checking common issues. **No logs are collected** from your server, so the report can be shared without concern |
+| `--collect-logs` | Collect most relevant logs and also create the report. Best mode when you need help from NI-SP support. Skips the interactive menu |
+| `--without-encryption` | Create the compressed file without GPG encryption. The `.tar.gz` file will not be encrypted with a passphrase |
+| `--without-upload` | Skip the automatic upload to NI-SP. The file is preserved locally. You can then manually upload it to https://ni-sp.com:9443/ and send the generated link to NISP Support Team |
+| `--without-compression` | Skip compression and keep the collected logs as a directory (`dcv_logs_collection/`). Implies `--without-encryption` and `--without-upload` |
+| `--message "text"` | Provide the identifier text for NISP Support Team (e.g. e-mail, name, company name). Skips the interactive prompt that asks for this information |
