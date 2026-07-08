@@ -588,6 +588,31 @@ writeExclusionPlaceholder()
     printf '%s\n' "$reason" | sudo tee "$path" > /dev/null
 }
 
+# True if a (possibly root-owned) file looks like text. grep -I reports binary
+# files as non-matching, so `grep -Iq .` succeeds only on files with text content.
+isTextFile()
+{
+    sudo grep -Iq . "$1" 2>/dev/null
+}
+
+# Trim an over-limit file in place. Text files keep their last
+# max_file_tail_lines lines with an explanatory first line; binary files can't
+# be tailed usefully, so they fall back to the delete+placeholder behavior.
+# Writes to a sibling temp file first to avoid reading and writing the same
+# file at once, then moves it over. sudo because collected files are root-owned.
+truncateOversizeFile()
+{
+    local path="$1" note="$2" placeholder="$3"
+    if isTextFile "$path"
+    then
+        { printf '%s\n' "$note"; sudo tail -n "$max_file_tail_lines" "$path"; } \
+            | sudo tee "${path}.trimmed" > /dev/null
+        sudo mv -f "${path}.trimmed" "$path"
+    else
+        writeExclusionPlaceholder "$path" "$placeholder"
+    fi
+}
+
 # Drop any single collected file larger than max_file_size_mb, leaving a
 # same-named placeholder. find -size +NM means strictly greater than N MiB.
 enforceFileSizeLimit()
@@ -597,7 +622,8 @@ enforceFileSizeLimit()
     do
         human=$(du -h "$file" 2>/dev/null | cut -f1)
         echo -e "${YELLOW}Excluding ${file} (${human}) - larger than ${max_file_size_mb} MB${NC}"
-        writeExclusionPlaceholder "$file" \
+        truncateOversizeFile "$file" \
+            "NOTE: This file was truncated to its last ${max_file_tail_lines} lines because it was larger than ${max_file_size_mb} MB (original size: ${human})." \
             "This file was excluded from the log bundle because it is larger than ${max_file_size_mb} MB (original size: ${human})."
     done < <(sudo find "$temp_dir" -type f -size +${max_file_size_mb}M -print0)
 }
@@ -624,7 +650,8 @@ enforceDirSizeLimit()
             [ -z "$biggest" ] && break          # nothing left to trim
             human=$(du -h "$biggest" 2>/dev/null | cut -f1)
             echo -e "${YELLOW}Directory ${dir} is $((size_kb / 1024)) MB - over ${max_dir_size_mb} MB; excluding largest file ${biggest} (${human})${NC}"
-            writeExclusionPlaceholder "$biggest" \
+            truncateOversizeFile "$biggest" \
+                "NOTE: This file was truncated to its last ${max_file_tail_lines} lines because its directory (${dir}) exceeded ${max_dir_size_mb} MB (original size: ${human})." \
                 "This file was excluded because its directory (${dir}) exceeded ${max_dir_size_mb} MB (original size: ${human})."
             prev_kb="$size_kb"
             size_kb=$(sudo du -sk "$dir" 2>/dev/null | cut -f1)
@@ -3236,6 +3263,7 @@ BOLD='\033[1m'
 temp_dir="tmp/"
 max_file_size_mb=50
 max_dir_size_mb=500
+max_file_tail_lines=15000
 collection_script_version="2026.08"
 compressed_file_name="dcv_logs_collection.tar.gz"
 encrypted_file_name="${compressed_file_name}.gpg"
