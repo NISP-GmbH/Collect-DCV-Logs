@@ -578,6 +578,76 @@ writeCollectionMeta()
 EOF
 }
 
+# Replace an over-limit path with a small same-named placeholder explaining why
+# it was dropped. sudo because collected files are often root-owned.
+writeExclusionPlaceholder()
+{
+    local path="$1"
+    local reason="$2"
+    sudo rm -f "$path"
+    printf '%s\n' "$reason" | sudo tee "$path" > /dev/null
+}
+
+# Drop any single collected file larger than max_file_size_mb, leaving a
+# same-named placeholder. find -size +NM means strictly greater than N MiB.
+enforceFileSizeLimit()
+{
+    local file human
+    while IFS= read -r -d '' file
+    do
+        human=$(du -h "$file" 2>/dev/null | cut -f1)
+        echo -e "${YELLOW}Excluding ${file} (${human}) - larger than ${max_file_size_mb} MB${NC}"
+        writeExclusionPlaceholder "$file" \
+            "This file was excluded from the log bundle because it is larger than ${max_file_size_mb} MB (original size: ${human})."
+    done < <(sudo find "$temp_dir" -type f -size +${max_file_size_mb}M -print0)
+}
+
+# For each top-level collection sub-directory over max_dir_size_mb, iteratively
+# replace the single largest remaining file with a placeholder and re-measure,
+# stopping once the directory drops under the limit. Preserves small files.
+enforceDirSizeLimit()
+{
+    # Work in KB (du -sk) rather than MB: replacing one file must register as
+    # measurable progress, otherwise whole-MB rounding can stall the loop while
+    # the directory is still over the limit (e.g. many small files).
+    local dir size_kb prev_kb limit_kb biggest human
+    limit_kb=$((max_dir_size_mb * 1024))
+    for dir in "$temp_dir"/*/
+    do
+        [ -d "$dir" ] || continue
+        size_kb=$(sudo du -sk "$dir" 2>/dev/null | cut -f1)
+        while [ -n "$size_kb" ] && [ "$size_kb" -gt "$limit_kb" ]
+        do
+            # Largest remaining file. du -k prints "<blocks>\t<path>" per file
+            # (portable across GNU/BSD find, unlike find -printf).
+            biggest=$(sudo find "$dir" -type f -exec du -k {} + 2>/dev/null | sort -rn | head -n1 | cut -f2-)
+            [ -z "$biggest" ] && break          # nothing left to trim
+            human=$(du -h "$biggest" 2>/dev/null | cut -f1)
+            echo -e "${YELLOW}Directory ${dir} is $((size_kb / 1024)) MB - over ${max_dir_size_mb} MB; excluding largest file ${biggest} (${human})${NC}"
+            writeExclusionPlaceholder "$biggest" \
+                "This file was excluded because its directory (${dir}) exceeded ${max_dir_size_mb} MB (original size: ${human})."
+            prev_kb="$size_kb"
+            size_kb=$(sudo du -sk "$dir" 2>/dev/null | cut -f1)
+            # Safety net: bail if a pass made no progress (e.g. only tiny
+            # placeholders remain) so the loop can never spin forever.
+            [ -n "$size_kb" ] && [ "$size_kb" -ge "$prev_kb" ] && break
+        done
+    done
+}
+
+# Trim the collected tree before compression: first the per-file 50 MB rule,
+# then the per-directory 500 MB rule (running the file rule first shrinks dirs).
+enforceSizeLimits()
+{
+    if $report_only
+    then
+        return
+    fi
+    echo "Enforcing size limits on collected logs..."
+    enforceFileSizeLimit
+    enforceDirSizeLimit
+}
+
 compressLogCollection()
 {
 	if $report_only
@@ -3164,6 +3234,8 @@ GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 temp_dir="tmp/"
+max_file_size_mb=50
+max_dir_size_mb=500
 collection_script_version="2026.08"
 compressed_file_name="dcv_logs_collection.tar.gz"
 encrypted_file_name="${compressed_file_name}.gpg"
@@ -3342,6 +3414,7 @@ main()
     runDcvgldiag
 	doHtmlReport
     writeCollectionMeta
+    enforceSizeLimits
     compressLogCollection
     encryptLogCollection
     uploadLogCollection
