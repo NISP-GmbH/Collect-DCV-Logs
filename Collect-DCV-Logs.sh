@@ -3271,7 +3271,7 @@ encrypt_length="32"
 encrypt_password=$(openssl rand -base64 48 | tr -dc '\-A-Za-z0-9@#$%^&*()_=+' | tr -d ' ' | head -c "${encrypt_length}")
 # AI log analysis: upload the (unencrypted) bundle to the NI SP upload service,
 # then request an analysis from Deep NI SP, which returns a private report link.
-upload_service_base="https://ni-sp.com:9443"
+upload_service_base="https://upload.ni-sp.com"
 deep_ai_base="https://deep.ni-sp.com"
 product_key="dcv-linux"
 support_name=""
