@@ -52,7 +52,7 @@ safeLogCheck()
                        
     elif [ -d "$target" ]
     then
-        local results=$(egrep -Ri "$pattern" "$target" 2>/dev/null | \
+        local results=$(grep -ERi "$pattern" "$target" 2>/dev/null | \
                        grep -vE "($$|wget|bash.*Collect|curl|${SCRIPT_MARKER})" | \
                        grep -v "$(basename $0)")
     else
@@ -299,7 +299,7 @@ EOF
 
     if [[ "${target_dir}" != "null" && "${string_pattern}" != "null" && -n "${target_dir}" && -n "${string_pattern}" ]]; then
         local unique_id="log_block_$(date +%s%N)"
-        local log_content=$(egrep -Ri "${string_pattern}" "${target_dir}" 2>/dev/null | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
+        local log_content=$(grep -ERi "${string_pattern}" "${target_dir}" 2>/dev/null | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
         if [ -n "$log_content" ]; then
             cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
             <div class="log-details">
@@ -355,7 +355,7 @@ reportMessageWrite()
     fi
 
     if [[ "${target_dir}" != "null" && "${string_pattern}" != "null" && -n "${target_dir}" && -n "${string_pattern}" ]]; then
-        local log_content=$(egrep -Ri "${string_pattern}" "${target_dir}" 2>/dev/null)
+        local log_content=$(grep -ERi "${string_pattern}" "${target_dir}" 2>/dev/null)
         if [ -n "$log_content" ]; then
             echo -e "\n--- Found Patterns Log ---" | tee -a $log_file > /dev/null
             echo "$log_content" | tee -a $log_file > /dev/null
@@ -475,14 +475,14 @@ checkLinuxDistro()
         if [ -f /etc/redhat-release ]
         then
             release_info=$(cat /etc/redhat-release)
-            if echo $release_info | egrep -iq "(centos|almalinux|rocky|red hat|redhat|oracle)"
+            if echo $release_info | grep -Eiq "(centos|almalinux|rocky|red hat|redhat|oracle)"
             then
                 redhat_distro_based="true"
             fi
 
             if [[ "${redhat_distro_based}" == "true" ]]
             then
-                if echo "$release_info" | egrep -iq stream
+                if echo "$release_info" | grep -Eiq stream
                 then
                     redhat_distro_based_version=$(cat /etc/redhat-release  |  grep -oE '[0-9]+')
                 else
@@ -505,7 +505,7 @@ checkLinuxDistro()
         else
             if [ -f /etc/debian_version ]
             then
-                if cat /etc/issue | egrep -iq "ubuntu"
+                if cat /etc/issue | grep -Eiq "ubuntu"
                 then
                     ubuntu_distro="true"
                     ubuntu_version=$(lsb_release -rs)
@@ -894,7 +894,7 @@ removeTempFiles()
 	    echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
 	    read user_answer
 
-	    if echo $user_answer | egrep -iq "^(y|yes)$"
+	    if echo $user_answer | grep -Eiq "^(y|yes)$"
 	    then
 	        rm -f ${compressed_file_name}
 	    fi
@@ -946,7 +946,7 @@ checkPackagesVersions()
 		
 	    if safeLogCheck "dcv" "${target_dir}/packages_might_not_os_compatible"
 	    then
-	    	dcv_packages_not_compatible=$(cat ${target_dir}/packages_might_not_os_compatible | egrep -i dcv)
+	    	dcv_packages_not_compatible=$(cat ${target_dir}/packages_might_not_os_compatible | grep -Ei dcv)
 			reportMessage \
 			"critical" \
 			"Found some DCV packages not compatible." \
@@ -1073,7 +1073,7 @@ getSssdData()
     fi
 
     detect_service=""
-    detect_service=$(sudo ps aux | egrep -iv "${SCRIPT_MARKER}" | egrep -i '[s]ssd')
+    detect_service=$(sudo ps aux | grep -Eiv "${SCRIPT_MARKER}" | grep -Ei '[s]ssd')
     if [[ "${detect_service}x" != "x" ]]
     then
         echo "$detect_service" > $temp_dir/warnings/sssd_is_running
@@ -1102,7 +1102,7 @@ getXfceData()
     echo "Collecting all XFCE relevant info..."
     target_dir="${temp_dir}/xfce_log/"
 
-    sudo journalctl --no-page | egrep -i "[x]fce" >> ${target_dir}/journalctl_xfce_log
+    sudo journalctl --no-page | grep -Ei "[x]fce" >> ${target_dir}/journalctl_xfce_log
 }
 
 checkDisplayManager()
@@ -1112,7 +1112,7 @@ checkDisplayManager()
 		display_manager_path="/etc/systemd/system/display-manager.service"
 		if [ -f $display_manager_path ]
 		then
-			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | egrep -i execstart | cut -d"=" -f2))
+			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | grep -Ei execstart | cut -d"=" -f2))
 		fi
 	fi
 
@@ -1121,7 +1121,7 @@ checkDisplayManager()
 		display_manager_path="/etc/systemd/system/display-manager.service"
 		if [ -f $display_manager_path ]
 		then
-			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | egrep -i execstart | cut -d"=" -f2))
+			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | grep -Ei execstart | cut -d"=" -f2))
 		fi
 	fi
 
@@ -1192,7 +1192,7 @@ lookForDmIssues()
         "$log_dir_to_look" \
         "$regular_expression"
 
-        egrep -Ri "$regular_expression" $log_dir_to_look  | egrep -i dcv > ${warning_dir}/${display_manager_name}_errors
+        grep -ERi "$regular_expression" $log_dir_to_look  | grep -Ei dcv > ${warning_dir}/${display_manager_name}_errors
 
         regular_expression="(dcv.*${regular_expression}|${regular_expression}.*dcv)"
 		if safeLogCheck "$regular_expression" "$log_dir_to_look"
@@ -1206,7 +1206,7 @@ lookForDmIssues()
             "$log_dir_to_look" \
             "$regular_expression"
 
-            egrep -Ri "$regular_expression" $log_dir_to_look  | egrep -i dcv > ${warning_dir}/${display_manager_name}_dcv_errors
+            grep -ERi "$regular_expression" $log_dir_to_look  | grep -Ei dcv > ${warning_dir}/${display_manager_name}_dcv_errors
 		fi
 	else
 		reportMessage \
@@ -1324,7 +1324,7 @@ getDcvDataAfterReboot()
     target_dir="${temp_dir}/dcv_log/after_reboot/"
     mkdir -p $target_dir
 
-    if echo $user_answer | egrep -iq "yes"
+    if echo $user_answer | grep -Eiq "yes"
     then
         sudo systemctl restart dcvserver
 
@@ -1705,7 +1705,7 @@ getDcvData()
     fi
 
 	echo "Checking /etc/dcv/dcv.conf and memory parameters file..." | tee -a $dcv_report_path
-    if sudo dcv get-config --all | egrep -i "no-tls-strict" | egrep -iq "false"
+    if sudo dcv get-config --all | grep -Ei "no-tls-strict" | grep -Eiq "false"
     then
 		reportMessage \
 		"warning" \
@@ -1717,7 +1717,7 @@ getDcvData()
         "null"
     fi
 
-	if sudo dcv get-config --all | egrep -i "enable-quic-frontend" | egrep -iq "false"
+	if sudo dcv get-config --all | grep -Ei "enable-quic-frontend" | grep -Eiq "false"
 	then
 		reportMessage \
 		"critical" \
@@ -1987,7 +1987,7 @@ runDcvgldiag()
 
         if safeLogCheck "Test Result: ERROR" "${target_dir}/dcvgldiag.log"
         then
-            dcvgldiag_errors_count=$(egrep -ic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
+            dcvgldiag_errors_count=$(grep -Eic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
             echo "found >> $dcvgldiag_errors_count << tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
         fi
 
@@ -2137,7 +2137,7 @@ getOsData()
     if command_exists getenforce
     then
         sudo getenforce > $target_dir/getenforce_result 2>&1
-        if cat $target_dir/getenforce_result | egrep -iq "enforcing"
+        if cat $target_dir/getenforce_result | grep -Eiq "enforcing"
         then
             echo -e "${YELLOW}SELINUX is being enforced!${NC}" | tee -a ${temp_dir}/warnings/selinux_is_enforced $dcv_report_path > /dev/null
         fi
@@ -2213,7 +2213,7 @@ getOsData()
         pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
         if safeLogCheck "${pkg_names}" "${target_dir}/deb_packages_list"
         then
-            cat ${target_dir}/deb_packages_list | egrep -iq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
+            cat ${target_dir}/deb_packages_list | grep -Eiq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
         fi
     fi
 
@@ -2222,7 +2222,7 @@ getOsData()
         pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
         if safeLogCheck "${pkg_names}" "${target_dir}/rpm_packages_list"
         then
-            cat ${target_dir}/rpm_packages_list | egrep -iq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
+            cat ${target_dir}/rpm_packages_list | grep -Eiq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
         fi
     fi
 
@@ -2232,14 +2232,14 @@ getOsData()
         if safeLogCheck "${string_pattern}" "$target_dir/dmesg"
         then
 			echo -e "${YELLOW}Possible OOM Killer events found... please check your /var/log/dmesg files${NC}" | tee -a $dcv_report_path
-            cat $target_dir/dmesg | egrep -i "(oom|killed|killer)" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg > /dev/null
+            cat $target_dir/dmesg | grep -Ei "(oom|killed|killer)" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg > /dev/null
         fi
 
         string_pattern="(segfault|segmentation fault)"
         if safeLogCheck "${string_pattern}" "$target_dir/dmesg"
         then
 			echo -e "${YELLOW}Segmentation fault events found... please check your /var/log/dmesg files${NC}" | tee -a $dcv_report_path
-            cat $target_dir/dmesg | egrep -i "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found > /dev/null
+            cat $target_dir/dmesg | grep -Ei "(segfault|segmentation fault)" | tee -a ${temp_dir}/warnings/segmentation_fault_found > /dev/null
         fi
     fi
 
@@ -2272,7 +2272,7 @@ getOsData()
         regular_expression="(dcv.*${regular_expression}|${regular_expression}.*dcv)"
         if safeLogCheck "$regular_expression" "$target_dir/messages*"
         then
-            egrep -i "selinux is preventing" "$target_dir/messages*" | grep -i "dcv" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
+            grep -Ei "selinux is preventing" "$target_dir/messages*" | grep -i "dcv" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
         fi
 		
 		if [ -f ${temp_dir}/warnings/selinux_is_preventing_dcv ] 
@@ -2894,7 +2894,7 @@ getXorgData()
     fi
 
     detect_service=""
-    detect_service=$(sudo ps aux | egrep -i '[w]ayland' | egrep -v "tar.gz" | egrep -iv "${SCRIPT_MARKER}")
+    detect_service=$(sudo ps aux | grep -Ei '[w]ayland' | grep -Ev "tar.gz" | grep -Eiv "${SCRIPT_MARKER}")
     if [[ "${detect_service}x" != "x" ]]
     then
 		reportMessage \
@@ -2916,8 +2916,8 @@ getXorgData()
         "null"
     fi
 
-    XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | egrep -iv "${SCRIPT_MARKER}" | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
-    x_display=$(sudo ps aux | egrep '([X]|[X]org|[X]wayland)' | egrep -iv ${SCRIPT_MARKER} | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
+    XAUTH=$(sudo ps aux | grep "/usr/bin/X.*\-auth" | grep -v grep | grep -Eiv "${SCRIPT_MARKER}" | sed -n 's/.*-auth \([^ ]\+\).*/\1/p')
+    x_display=$(sudo ps aux | grep -E '([X]|[X]org|[X]wayland)' | grep -Eiv ${SCRIPT_MARKER} | awk '{for (i=1; i<=NF; i++) if ($i ~ /^:[0-9]+$/) print $i}')
     if [[ "${x_display}x" == "x" ]]
     then
 		reportMessage \
