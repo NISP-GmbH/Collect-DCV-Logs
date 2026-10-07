@@ -1397,6 +1397,8 @@ getDcvData()
     if [ -d /var/log/dcv ]
     then
         sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
+        # Output of a previous run started from /var/log/dcv; not DCV logs, and it bloats the bundle
+        sudo rm -rf "${target_dir}dcv/${compressed_file_name}" "${target_dir}dcv/${encrypted_file_name}" "${target_dir}dcv/${output_dir_name}"
     else
         echo -e "${RED}/var/log/dcv not found!${NC}" | tee -a $target_dir/var_log_dcv_not_found $dcv_report_path
     fi
