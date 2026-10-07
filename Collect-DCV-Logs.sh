@@ -398,7 +398,7 @@ welcomeMessage()
 
 	case $option_selected in
 		1)
-			echo -e "${GREEN}The report will be saved in the same directory of the script with the name >> $dcv_report_file_name << and >> $dcv_report_html_file_name <<.${NC}"
+			echo -e "${GREEN}The report will be saved in the current directory with the name >> $dcv_report_file_name << and >> $dcv_report_html_file_name <<.${NC}"
 			report_only="true"
 		;;
 		2)
@@ -865,11 +865,11 @@ removeTempFiles()
 	then
 		if $report_only
 		then
-			if [ -f $dcv_report_file_name ]
+			if [ -f "$dcv_report_path" ]
 			then
-				rm -f $dcv_report_file_name
-				cp -a ${dcv_report_path} .
-				cp -a ${dcv_report_html_path} .
+				rm -f "$dcv_report_file_name" "$dcv_report_html_file_name"
+				cp -a "${dcv_report_path}" .
+				cp -a "${dcv_report_html_path}" .
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}#########################################################################${NC}"
 				echo -e "${GREEN}The TXT report was saved in >> $dcv_report_file_name <<.${NC}"
@@ -2124,7 +2124,6 @@ getUsbData()
     if command_exists lshw
     then
         sudo lshw -class bus -class usb > $target_dir/hardware_usb.txt
-        sudo lshw -class bus -class usb > hardware_usb.txt
     fi
 }
 
@@ -2284,7 +2283,7 @@ getOsData()
         regular_expression="(dcv.*${regular_expression}|${regular_expression}.*dcv)"
         if safeLogCheck "$regular_expression" "$target_dir/messages*"
         then
-            grep -Ei "selinux is preventing" "$target_dir/messages*" | grep -i "dcv" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
+            grep -hEi "selinux is preventing" "$target_dir"/messages* | grep -i "dcv" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
         fi
 		
 		if [ -f ${temp_dir}/warnings/selinux_is_preventing_dcv ] 
@@ -2295,7 +2294,7 @@ getOsData()
 			"${temp_dir}/warnings/selinux_is_preventing_dcv" \
 			"Please review your /var/log/messages to identify which DCV service is being blocked by SELINUX." \
 			"null" \
-            "$target_dir/messages*" \
+            "${temp_dir}/warnings/selinux_is_preventing_dcv" \
             "$regular_expression"
 		else
 			reportMessage \
@@ -3084,7 +3083,7 @@ checkDcvManagementLinux()
 getCronInfo()
 {
 	echo "Getting cronjob info..." | tee -a $dcv_report_path
-	target_dir="${temp_dir}/cron_logs/"
+	target_dir="${temp_dir}/cron_log/"
 	
 	if [ -f /var/log/cron ]
 	then
@@ -3107,7 +3106,7 @@ getCronData()
 
 	if [ -d /var/spool/cron ]
 	then
-		sudo cp -a /var/spool/cron/* $target_dir
+		sudo cp -a /var/spool/cron/. $target_dir
 	fi
 
     local string_pattern="dcv"
