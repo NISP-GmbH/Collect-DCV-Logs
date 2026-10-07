@@ -1399,6 +1399,19 @@ getDcvData()
         sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
         # Output of a previous run started from /var/log/dcv; not DCV logs, and it bloats the bundle
         sudo rm -rf "${target_dir}dcv/${compressed_file_name}" "${target_dir}dcv/${encrypted_file_name}" "${target_dir}dcv/${output_dir_name}"
+
+        # The cp output is discarded, so verify the main log actually made it into the bundle
+        if sudo test -f /var/log/dcv/server.log && ! sudo test -f "${target_dir}dcv/server.log"
+        then
+            reportMessage \
+            "critical" \
+            "/var/log/dcv/server.log exists but was not collected." \
+            "${temp_dir}/warnings/dcv_server_log_not_collected" \
+            "Copying /var/log/dcv failed or was incomplete, so the DCV logs are missing from this bundle. Check the free disk space in ${staging_parent} and run the script again from your home directory." \
+            "null" \
+            "null" \
+            "null"
+        fi
     else
         echo -e "${RED}/var/log/dcv not found!${NC}" | tee -a $target_dir/var_log_dcv_not_found $dcv_report_path
     fi
