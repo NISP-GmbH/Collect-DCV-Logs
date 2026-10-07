@@ -685,11 +685,13 @@ compressLogCollection()
 	if $without_compression
 	then
 		mv "$temp_dir" "$output_dir_name"
+		rmdir "$staging_root" 2>/dev/null
 		echo -e "${GREEN}Logs saved to directory: ${YELLOW}${output_dir_name}/${NC}"
 		return
 	fi
 
-    tar czf $compressed_file_name $temp_dir
+    # -C keeps the archive top-level as tmp/, independent of the staging location
+    tar czf "$compressed_file_name" -C "$staging_root" tmp
 }
 
 encryptLogCollection()
@@ -859,7 +861,7 @@ removeTempFiles()
 		return
 	fi
 
-	if [ -d $temp_dir ]
+	if [ -n "$staging_root" ] && [ -d "$staging_root" ]
 	then
 		if $report_only
 		then
@@ -878,7 +880,7 @@ removeTempFiles()
 				echo -e "${GREEN}#########################################################################${NC}"
 			fi
 		fi
-		rm -rf $temp_dir
+		rm -rf "$staging_root"
 	fi
 
 	if [ -f $encrypted_file_name ]
@@ -904,6 +906,16 @@ removeTempFiles()
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
+    staging_root=$(mktemp -d "${staging_parent}/dcv_logs_collection.XXXXXX")
+    if [ -z "$staging_root" ] || [ ! -d "$staging_root" ]
+    then
+        echo -e "${RED}Could not create a temp directory in ${staging_parent}. Set TMPDIR to a writable directory and try again.${NC}"
+        exit 1
+    fi
+    temp_dir="${staging_root}/tmp"
+    dcv_report_html_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_html_file_name}"
+    dcv_report_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_file_name}"
+    dcv_report_dir_path="${temp_dir}/${dcv_report_dir_name}/"
     for new_dir in kerberos_conf pam_conf authselect_conf sssd_conf nsswitch_conf dcvgldiag nvidia_info warnings xorg_log xorg_conf dcv_conf dcv_memory_config dcv_log os_data os_log journal_log hardware_info gdm_log gdm_conf lightdm_log lightdm_conf sddm_log sddm_conf xfce_conf xfce_log systemd_info smart_info network_log ${dcv_report_dir_name} cron_data cron_log usb_data dcv_management
     do
         sudo mkdir -p ${temp_dir}/$new_dir
@@ -3264,7 +3276,11 @@ BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
-temp_dir="tmp/"
+# Staging lives outside the cwd (see createTempDirs): a cwd-relative tmp/ broke
+# collection when the script was run from a directory it copies (e.g. /var/log/dcv).
+staging_parent="${TMPDIR:-/var/tmp}"
+staging_root=""
+temp_dir=""
 max_file_size_mb=50
 max_dir_size_mb=500
 max_file_tail_lines=15000
@@ -3300,9 +3316,10 @@ option_selected="1"
 dcv_report_dir_name="dcv_report"
 dcv_report_file_name="dcv_report.txt"
 dcv_report_html_file_name="dcv_report.html"
-dcv_report_html_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_html_file_name}"
-dcv_report_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_file_name}"
-dcv_report_dir_path="${temp_dir}/${dcv_report_dir_name}/"
+# Set in createTempDirs, once temp_dir exists.
+dcv_report_html_path=""
+dcv_report_path=""
+dcv_report_dir_path=""
 dcv_report_separator="------------------------------------------------------------------"
 dns_test_domain="google.com"
 ip_test_external="8.8.8.8"
