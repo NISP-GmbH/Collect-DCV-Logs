@@ -1141,7 +1141,7 @@ getXfceData()
     echo "Collecting all XFCE relevant info..."
     target_dir="${temp_dir}/xfce_log/"
 
-    sudo journalctl --no-page | grep -Ei "[x]fce" >> ${target_dir}/journalctl_xfce_log
+    sudo journalctl --no-pager | grep -Ei "[x]fce" >> ${target_dir}/journalctl_xfce_log
 }
 
 checkDisplayManager()
@@ -1370,8 +1370,8 @@ getDcvDataAfterReboot()
         else
             echo "not found" > $target_dir/var_log_dcv_not_found
             sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log
-            sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal
-            sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal
+            sudo journalctl --no-pager | grep -i selinux > ${target_dir}/selinux_log_from_journal
+            sudo journalctl --no-pager | grep -i apparmor > ${target_dir}/apparmor_log_from_journal
         fi 
     else
         echo "dcv reboot test not executed" > ${target_dir}/dcv_reboot_test_not_executed
@@ -2363,14 +2363,20 @@ getOsData()
     echo "Reading journalctl log..."
     sudo journalctl -n 30000 > ${target_dir}/journal_last_30000_lines.log 2>&1
 
-    echo "Reading possible selinux log..."
-    sudo journalctl --no-page | grep -i selinux > ${target_dir}/selinux_log_from_journal 2>&1
-
-    echo "Reading possible apparmor log..."
-    sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
-
-	echo "Looking for OOM killer fault events"
-    sudo journalctl --no-pager | grep -Ei "${oom_pattern}" > ${target_dir}/oom_killer_from_journal 2>&1
+    # one pass over the whole journal (it can be large) instead of one per search
+    echo "Reading possible selinux, apparmor and OOM killer log..."
+    sudo journalctl --no-pager 2>/dev/null | awk \
+        -v selinux_file="${target_dir}/selinux_log_from_journal" \
+        -v apparmor_file="${target_dir}/apparmor_log_from_journal" \
+        -v oom_file="${target_dir}/oom_killer_from_journal" \
+        -v oom_pattern="${oom_pattern}" '
+        BEGIN { printf "" > selinux_file; printf "" > apparmor_file; printf "" > oom_file }
+        {
+            line = tolower($0)
+            if (line ~ /selinux/) print > selinux_file
+            if (line ~ /apparmor/) print > apparmor_file
+            if (line ~ oom_pattern) print > oom_file
+        }'
     if safeLogCheck "${oom_pattern}" "${target_dir}/oom_killer_from_journal"
     then
 		reportMessage \
