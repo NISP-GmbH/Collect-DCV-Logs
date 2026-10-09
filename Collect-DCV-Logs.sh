@@ -1643,6 +1643,7 @@ getDcvData()
     fi
 
     echo "Checking if QUIC is being started..."
+    local temp_quic_enabled=false
     if safeLogCheck "QUIC frontend enabled" "${target_dir}/dcv/server.log"
     then
         temp_quic_enabled=true
