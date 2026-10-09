@@ -561,32 +561,6 @@ checkLinuxDistro()
     fi
 }
 
-setupUsefulTools()
-{
-    if ! command_exists smartctl
-    then
-        if $ubuntu_distro
-        then
-            if command_exists apt-get
-            then
-                sudo apt-get update
-                sudo apt-get install -y smartmontools
-            fi
-        fi
-
-        if $redhat_distro_based
-        then
-            if command_exists dnf
-            then
-                sudo dnf install -y smartmontools
-            elif command_exists yum
-            then
-                sudo yum install -y smartmontools
-            fi
-        fi
-    fi
-}
-
 # Writes a product-identification manifest into the bundle so downstream tools
 # (e.g. the AI Log Analysis service) can reliably detect what this bundle is.
 writeCollectionMeta()
@@ -950,7 +924,6 @@ containsVersion() {
 checkPackagesVersions()
 {
     echo "Checking packages versions... depending of your server it can take up to 2 minutes..." | tee -a $dcv_report_path
-    checkLinuxDistro
     target_dir="${temp_dir}/warnings/"
 
     if [[ "$ubuntu_distro" == "false" ]]
@@ -2588,6 +2561,14 @@ getSmartInfo()
 {
     if ! command_exists smartctl
     then
+        reportMessage \
+        "info" \
+        "smartctl not found, the storage health (S.M.A.R.T.) was not checked." \
+        "null" \
+        "Install the smartmontools package if you want the storage health in this report." \
+        "null" \
+        "null" \
+        "null"
         return 1
     else
         echo "Checking S.M.A.R.T...." | tee -a $dcv_report_path
@@ -3519,8 +3500,9 @@ main()
         exit 1
     fi
 
+    # before any prompt, so an unsupported system aborts right away
+    checkLinuxDistro
     welcomeMessage
-    setupUsefulTools
     createTempDirs
     checkPackagesVersions
     getSystemdData
