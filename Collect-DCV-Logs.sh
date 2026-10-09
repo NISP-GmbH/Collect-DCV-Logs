@@ -1137,21 +1137,16 @@ getXfceData()
 
 checkDisplayManager()
 {
-	if $redhat_distro_based
+	display_manager_path="/etc/systemd/system/display-manager.service"
+	if [ -f $display_manager_path ]
 	then
-		display_manager_path="/etc/systemd/system/display-manager.service"
-		if [ -f $display_manager_path ]
+		# only ExecStart= (lightdm also has an ExecStartPre= shell line), and only
+		# the binary, without arguments or systemd prefixes like "-"
+		local display_manager_exec
+		display_manager_exec=$(grep -E '^ExecStart=' $display_manager_path | head -n1 | cut -d"=" -f2- | awk '{print $1}' | sed 's/^[-@:+!]*//')
+		if [ -n "$display_manager_exec" ]
 		then
-			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | grep -Ei execstart | cut -d"=" -f2))
-		fi
-	fi
-
-	if $ubuntu_distro
-	then
-		display_manager_path="/etc/systemd/system/display-manager.service"
-		if [ -f $display_manager_path ]
-		then
-			display_manager_name=$(basename $(cat /etc/systemd/system/display-manager.service | grep -Ei execstart | cut -d"=" -f2))
+			display_manager_name=$(basename "$display_manager_exec")
 		fi
 	fi
 
