@@ -1751,7 +1751,14 @@ getDcvData()
     fi
 
 	echo "Checking /etc/dcv/dcv.conf and memory parameters file..." | tee -a $dcv_report_path
-    if sudo dcv get-config --all | grep -Ei "no-tls-strict" | grep -Eiq "false"
+	# without the dcv binary there is no config to judge (getDcvMemoryConfig reports it)
+	local dcv_all_config=""
+	if command_exists dcv
+	then
+		dcv_all_config=$(sudo dcv get-config --all 2>/dev/null)
+	fi
+
+    if echo "$dcv_all_config" | grep -Ei "no-tls-strict" | grep -Eiq "false"
     then
 		reportMessage \
 		"warning" \
@@ -1763,7 +1770,10 @@ getDcvData()
         "null"
     fi
 
-	if sudo dcv get-config --all | grep -Ei "enable-quic-frontend" | grep -Eiq "false"
+	if [ -z "$dcv_all_config" ]
+	then
+		:
+	elif echo "$dcv_all_config" | grep -Ei "enable-quic-frontend" | grep -Eiq "false"
 	then
 		reportMessage \
 		"critical" \
