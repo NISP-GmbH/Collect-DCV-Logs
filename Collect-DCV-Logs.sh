@@ -3244,7 +3244,8 @@ checkNetwork()
         fi
     elif command_exists dig
 	then
-    	if ! dig +short $dns_test_domain  &>/dev/null
+    	# dig exits 0 on NXDOMAIN too, so require an answer
+    	if [ -z "$(dig +short $dns_test_domain 2>/dev/null)" ]
 		then
         	dns_is_working="false"
         else
@@ -3260,7 +3261,7 @@ checkNetwork()
         fi
 	elif command_exists getent
 	then
-		if ! getent hosts  &>/dev/null
+		if ! getent hosts $dns_test_domain &>/dev/null
 		then
         	dns_is_working="false"
         else
@@ -3331,7 +3332,7 @@ checkNetwork()
         echo "TCP ports:"
         sudo cat /proc/net/tcp 2>/dev/null >> ${target_dir}/proc_net_tcp
         echo "UDP ports:"
-        sudo cat /proc/net/udp 2>/dev/null ${target_dir}/proc_net_udp
+        sudo cat /proc/net/udp 2>/dev/null >> ${target_dir}/proc_net_udp
     fi
 }
 
