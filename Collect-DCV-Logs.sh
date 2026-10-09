@@ -2339,6 +2339,27 @@ getOsData()
     sudo journalctl --no-page | grep -i apparmor > ${target_dir}/apparmor_log_from_journal 2>&1
 
 	echo "Looking for OOM killer fault events"
+    sudo journalctl --no-pager | grep -Ei "${oom_pattern}" > ${target_dir}/oom_killer_from_journal 2>&1
+    if safeLogCheck "${oom_pattern}" "${target_dir}/oom_killer_from_journal"
+    then
+		reportMessage \
+		"critical" \
+		"Possible OOM Killer events found in journalctl!" \
+		"${temp_dir}/warnings/possible_oom_killer_log_found_journal" \
+		"You need to check the cause of OOM Killer action and check if it is affecting DCV and related services (X, display manager, session manager etc)." \
+		"null" \
+        "${target_dir}/oom_killer_from_journal" \
+        "${oom_pattern}"
+	else
+		reportMessage \
+		"info" \
+		"Did not find OOM Killer events in journalctl." \
+		"null" \
+		"null" \
+		"null" \
+        "null" \
+        "null"
+    fi
 
     echo "Looking for segmentation fault events..."
     local string_pattern="(segfault|segmentation fault)"
