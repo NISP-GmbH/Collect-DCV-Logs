@@ -3511,6 +3511,14 @@ done
 
 main()
 {
+    # collected files are root-owned and most output is written with plain
+    # redirects, so the collection only works as root
+    if [ "$(id -u)" -ne 0 ]
+    then
+        echo -e "${RED}ERROR: please run this script as root, e.g.: sudo bash $(basename $0)${NC}"
+        exit 1
+    fi
+
     welcomeMessage
     setupUsefulTools
     createTempDirs
