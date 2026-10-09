@@ -439,6 +439,12 @@ collectSupportDetails()
 		support_problem="$identifier_message"
 	fi
 
+	if [ -n "$support_email" ] && [[ ! "$support_email" =~ ^[^@]+@[^@]+\.[^@]+$ ]]
+	then
+		echo -e "${RED}ERROR: >> $support_email << is not a valid e-mail address.${NC}"
+		support_email=""
+	fi
+
 	# Without a terminal (cron, Ansible, SSM...) read hits EOF and the prompts
 	# below would loop forever, so fail with a hint instead
 	if [ ! -t 0 ] && { [ -z "$support_name" ] || [ -z "$support_email" ] || [ -z "$support_problem" ]; }
@@ -3437,6 +3443,13 @@ showHelp()
 	exit 0
 }
 
+argError()
+{
+	echo -e "${RED}ERROR: $1${NC}"
+	echo "Use -h or --help to see all available options."
+	exit 1
+}
+
 while [ $# -gt 0 ]
 do
 	case $1 in
@@ -3464,24 +3477,33 @@ do
 			without_upload=true
 		;;
 		--proxy)
+			[ $# -ge 2 ] || argError "$1 needs a value."
 			shift
 			proxy_url="$1"
 		;;
 		--message)
+			[ $# -ge 2 ] || argError "$1 needs a value."
 			shift
 			identifier_message="$1"
 		;;
 		--name)
+			[ $# -ge 2 ] || argError "$1 needs a value."
 			shift
 			support_name="$1"
 		;;
 		--email)
+			[ $# -ge 2 ] || argError "$1 needs a value."
 			shift
 			support_email="$1"
 		;;
 		--problem)
+			[ $# -ge 2 ] || argError "$1 needs a value."
 			shift
 			support_problem="$1"
+		;;
+		*)
+			# a mistyped flag must not fall back to a full collect-and-upload run
+			argError "unknown option >> $1 <<."
 		;;
 	esac
 	shift
