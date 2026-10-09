@@ -25,6 +25,21 @@ getEtcAuthSelect()
     fi
 }
 
+# Drop log lines that this script produced itself: sudo's audit lines for the
+# commands it runs and the command line that started it. Lines are not
+# filtered by PID or by words like curl, as that also hid real log lines.
+filterOwnLines()
+{
+    local own_name
+    own_name=$(basename "$0")
+    case "$own_name" in
+        *.sh) ;;
+        # started from a pipe, $0 is the shell: do not drop every "bash" line
+        *) own_name="${SCRIPT_MARKER}" ;;
+    esac
+    grep -vE "(sudo.*COMMAND=|bash.*Collect|${SCRIPT_MARKER})" | grep -vF -- "$own_name"
+}
+
 safeLogCheck()
 {
     local pattern="$1"
@@ -41,20 +56,14 @@ safeLogCheck()
             return 1
         fi
         
-        local results=$(echo "$matching_files" | xargs grep -iE "$pattern" 2>/dev/null | \
-                       grep -vE "($$|wget|bash.*Collect|curl|${SCRIPT_MARKER})" | \
-                       grep -v "$(basename $0)")                       
+        local results=$(echo "$matching_files" | xargs grep -iE "$pattern" 2>/dev/null | filterOwnLines)
     elif [ -f "$target" ]
     then
-        local results=$(grep -iE "$pattern" "$target" 2>/dev/null | \
-                       grep -vE "($$|wget|bash.*Collect|curl|${SCRIPT_MARKER})" | \
-                       grep -v "$(basename $0)")
+        local results=$(grep -iE "$pattern" "$target" 2>/dev/null | filterOwnLines)
                        
     elif [ -d "$target" ]
     then
-        local results=$(grep -ERi "$pattern" "$target" 2>/dev/null | \
-                       grep -vE "($$|wget|bash.*Collect|curl|${SCRIPT_MARKER})" | \
-                       grep -v "$(basename $0)")
+        local results=$(grep -ERi "$pattern" "$target" 2>/dev/null | filterOwnLines)
     else
         return 1
     fi
