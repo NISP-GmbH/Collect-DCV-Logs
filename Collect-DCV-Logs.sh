@@ -732,7 +732,7 @@ uploadFallbackHint()
 
 # Upload a bundle to the NI SP upload service (tus protocol) and request an AI
 # log analysis from Deep NI SP. Prints the private report link on success.
-# Args: <file> <product-key>. Uses $curl_proxy_opt and $support_name/email/problem.
+# Args: <file> <product-key>. Uses $curl_opts and $support_name/email/problem.
 requestAiAnalysis()
 {
 	local file="$1"
@@ -750,7 +750,7 @@ requestAiAnalysis()
 
 	# 1) tus create — declare the length + filename, receive an upload Location.
 	local create_headers location
-	create_headers=$(curl $curl_proxy_opt -s -D - -o /dev/null -X POST "${upload_service_base}/files/" \
+	create_headers=$(curl "${curl_opts[@]}" -D - -o /dev/null -X POST "${upload_service_base}/files/" \
 		-H "Tus-Resumable: 1.0.0" \
 		-H "Upload-Length: ${fsize}" \
 		-H "Upload-Metadata: filename ${fname_b64},product ${product_b64}")
@@ -761,13 +761,15 @@ requestAiAnalysis()
 		return 1
 	fi
 
-	# 2) tus send bytes — single PATCH of the whole file at offset 0.
+	# 2) tus send bytes — single PATCH of the whole file at offset 0. -T streams
+	# the file (--data-binary would load the whole bundle into memory).
 	local patch_status
-	patch_status=$(curl $curl_proxy_opt -s -o /dev/null -w "%{http_code}" -X PATCH "$location" \
+	patch_status=$(curl "${curl_opts[@]}" -o /dev/null -w "%{http_code}" -X PATCH "$location" \
 		-H "Tus-Resumable: 1.0.0" \
 		-H "Upload-Offset: 0" \
 		-H "Content-Type: application/offset+octet-stream" \
-		--data-binary "@${file}")
+		-H "Expect:" \
+		-T "${file}")
 	if [ "$patch_status" != "204" ]; then
 		echo -e "${RED}Upload failed (HTTP ${patch_status}).${NC}"
 		uploadFallbackHint
@@ -777,7 +779,7 @@ requestAiAnalysis()
 	# 3) sign — turn the upload id into a signed, time-limited download link.
 	local upload_id sign_json dl_path download_url
 	upload_id="${location##*/}"
-	sign_json=$(curl $curl_proxy_opt -s "${upload_service_base}/sign/${upload_id}")
+	sign_json=$(curl "${curl_opts[@]}" "${upload_service_base}/sign/${upload_id}")
 	dl_path=$(printf '%s' "$sign_json" | sed -n 's/.*"url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
 	# PHP's json_encode escapes slashes (\/) — unescape so the URL host parses.
 	dl_path=$(printf '%s' "$dl_path" | sed 's#\\/#/#g')
@@ -791,13 +793,14 @@ requestAiAnalysis()
 	# 4) request AI analysis — Deep NI SP queues the job and returns a report link.
 	echo -e "${YELLOW}Requesting AI log analysis...${NC}"
 	local resp result_path err report_url
-	resp=$(curl $curl_proxy_opt -s -X POST "${deep_ai_base}/api/upload" \
-		-F "product=${product}" \
-		-F "problem_description=${support_problem}" \
-		-F "contact_name=${support_name}" \
-		-F "contact_email=${support_email}" \
-		-F "consent=on" \
-		-F "source_url=${download_url}")
+	# --form-string: with -F, a value starting with @ or < is read as a file name
+	resp=$(curl "${curl_opts[@]}" -X POST "${deep_ai_base}/api/upload" \
+		--form-string "product=${product}" \
+		--form-string "problem_description=${support_problem}" \
+		--form-string "contact_name=${support_name}" \
+		--form-string "contact_email=${support_email}" \
+		--form-string "consent=on" \
+		--form-string "source_url=${download_url}")
 	result_path=$(printf '%s' "$resp" | sed -n 's/.*"result_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
 	if [ -z "$result_path" ]; then
 		err=$(printf '%s' "$resp" | sed -n 's/.*"error"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
@@ -852,10 +855,11 @@ uploadLogCollection()
 		return
 	fi
 
-	curl_proxy_opt=""
+	# -sS: no progress bar, but still print why a request failed
+	curl_opts=(-sS --connect-timeout 30)
 	if [ -n "$proxy_url" ]; then
-		curl_proxy_opt="--proxy ${proxy_url}"
-		echo -e "${GREEN}Using proxy: ${YELLOW}${proxy_url}${NC}"
+		curl_opts+=(--proxy "${proxy_url}")
+		echo -e "${GREEN}Using proxy: ${YELLOW}${proxy_url/:\/\/*@/://[REDACTED]@}${NC}"
 	fi
 
 	requestAiAnalysis "${upload_file}" "${product_key}"
