@@ -3370,7 +3370,6 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
-BOLD='\033[1m'
 # Staging lives outside the cwd (see createTempDirs): a cwd-relative tmp/ broke
 # collection when the script was run from a directory it copies (e.g. /var/log/dcv).
 staging_parent="${TMPDIR:-/var/tmp}"
@@ -3422,7 +3421,6 @@ local_storage_devices=""
 smart_disk_report=""
 smart_disk_warnings=""
 SCRIPT_MARKER="NISPGMBHHASH$(date +%s)$$"
-HTML_TEXTAREA_COUNTER=0
 
 dcv_report_text_about_segfault="You need to check the system logs to understand which processes are getting segmentation fault and the consequences to DCV environment. Segmentation fault is a system protection that means that some process tried to access non allowed memory region. Usually this happen due software bugs, but sometimes is related with non compatible software, like using DCV in Wayland environment or using multiple remote desktop systems at the same time; As they will compete for same resources, they can have erroneous behavior."
 
@@ -3588,9 +3586,6 @@ main()
 }
 
 main
-
-# unknown error
-exit 255
 
 # unknown error
 exit 255
