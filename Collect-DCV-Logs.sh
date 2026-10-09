@@ -2252,13 +2252,16 @@ getOsData()
         fi
     fi
 
+    # match only real OOM kill events, not strings like OomKillDisable, OOMKilled or oom_score_adj
+    local oom_pattern="(oom-kill|oom_reaper|out of memory: kill|killed by the oom killer)"
+
     if [ -f $target_dir/dmesg ]
     then
-        local string_pattern="oom"
+        local string_pattern="${oom_pattern}"
         if safeLogCheck "${string_pattern}" "$target_dir/dmesg"
         then
 			echo -e "${YELLOW}Possible OOM Killer events found... please check your /var/log/dmesg files${NC}" | tee -a $dcv_report_path
-            cat $target_dir/dmesg | grep -Ei "(oom|killed|killer)" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg > /dev/null
+            cat $target_dir/dmesg | grep -Ei "${oom_pattern}" | tee -a ${temp_dir}/warnings/possible_oom_killer_log_found_dmesg > /dev/null
         fi
 
         string_pattern="(segfault|segmentation fault)"
@@ -2271,7 +2274,7 @@ getOsData()
 
     if [ -f $target_dir/messages ]
     then
-        local string_pattern="oom"
+        local string_pattern="${oom_pattern}"
         if safeLogCheck "${string_pattern}" "$target_dir/messages"
         then
 			reportMessage \
