@@ -2299,12 +2299,15 @@ getOsData()
         echo "Checking for SELinux logs... if you have big log files, please wait for a moment..." | tee -a $dcv_report_path
         regular_expression="(selinux is preventing)"
         regular_expression="(dcv.*${regular_expression}|${regular_expression}.*dcv)"
+        # the dcv CLI calls access(/etc, W_OK) on every run (including this script's own dcv commands);
+        # that denial is harmless and does not block any DCV service, so it is not reported
+        local selinux_dcv_cli_etc_probe="/usr/libexec/dcv/dcv from write access on the directory /etc\."
         if safeLogCheck "$regular_expression" "$target_dir/messages*"
         then
-            grep -hEi "selinux is preventing" "$target_dir"/messages* | grep -i "dcv" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
+            grep -hEi "selinux is preventing" "$target_dir"/messages* | grep -i "dcv" | grep -viE "${selinux_dcv_cli_etc_probe}" | tee -a ${temp_dir}/warnings/selinux_is_preventing_dcv > /dev/null
         fi
-		
-		if [ -f ${temp_dir}/warnings/selinux_is_preventing_dcv ] 
+
+		if [ -s ${temp_dir}/warnings/selinux_is_preventing_dcv ]
 		then
 			reportMessage \
 			"critical" \
