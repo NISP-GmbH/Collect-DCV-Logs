@@ -3098,7 +3098,7 @@ checkDcvManagementLinux()
 		if sudo systemctl is-enabled dcv-management &> /dev/null
 		then
 			dcv_managament_text1="enabled"
-			if sudo systemctl is-active &> /dev/null
+			if sudo systemctl is-active dcv-management &> /dev/null
 			then
 				dcv_managament_text2="active"
         		reportMessage \
@@ -3122,6 +3122,12 @@ checkDcvManagementLinux()
 			fi
 		else
 			dcv_managament_text1="disabled"
+			if sudo systemctl is-active dcv-management &> /dev/null
+			then
+				dcv_managament_text2="active"
+			else
+				dcv_managament_text2="not_active"
+			fi
         	reportMessage \
             "warning" \
             "DCV Management Linux service is >> $dcv_managament_text1 << and >> $dcv_managament_text2 <<." \
