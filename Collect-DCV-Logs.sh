@@ -62,6 +62,21 @@ safeLogCheck()
     [ -n "$results" ]
 }
 
+# grep a report target, which can be a file, a directory or a file glob
+# like .../dcv/server* (quoted by the callers, so expand it here)
+grepReportTarget()
+{
+    local pattern="$1"
+    local target="$2"
+
+    if [[ "$target" == *"*"* ]]
+    then
+        find "$(dirname "$target")" -maxdepth 1 -name "$(basename "$target")" -type f -exec grep -EHi "$pattern" {} + 2>/dev/null
+    else
+        grep -ERi "$pattern" "$target" 2>/dev/null
+    fi
+}
+
 doHtmlReport()
 {
     for html_section in head critical warning info tail
@@ -299,7 +314,7 @@ EOF
 
     if [[ "${target_dir}" != "null" && "${string_pattern}" != "null" && -n "${target_dir}" && -n "${string_pattern}" ]]; then
         local unique_id="log_block_$(date +%s%N)"
-        local log_content=$(grep -ERi "${string_pattern}" "${target_dir}" 2>/dev/null | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
+        local log_content=$(grepReportTarget "${string_pattern}" "${target_dir}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
         if [ -n "$log_content" ]; then
             cat << EOF >> ${dcv_report_dir_path}/html_${message_type}
             <div class="log-details">
@@ -355,7 +370,7 @@ reportMessageWrite()
     fi
 
     if [[ "${target_dir}" != "null" && "${string_pattern}" != "null" && -n "${target_dir}" && -n "${string_pattern}" ]]; then
-        local log_content=$(grep -ERi "${string_pattern}" "${target_dir}" 2>/dev/null)
+        local log_content=$(grepReportTarget "${string_pattern}" "${target_dir}")
         if [ -n "$log_content" ]; then
             echo -e "\n--- Found Patterns Log ---" | tee -a $log_file > /dev/null
             echo "$log_content" | tee -a $log_file > /dev/null
