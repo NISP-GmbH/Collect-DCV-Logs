@@ -2952,7 +2952,9 @@ getXorgData()
         else
             timeout_seconds=10
             echo "Executing X -configure query. The test will take up to >> $timeout_seconds << seconds" | tee -a $dcv_report_path
-			sudo timeout $timeout_seconds X -configure 2> >(tee -a "${target_dir}/xorg.conf.configure.stderr" $dcv_report_path > /dev/null) | tee -a "${target_dir}/xorg.conf.configure.stdout $dcv_report_path" > /dev/null
+			# X -configure writes $HOME/xorg.conf.new; point HOME at the bundle so it is
+			# collected instead of being left behind in root's home directory
+			sudo env HOME="${target_dir}" timeout $timeout_seconds X -configure 2> >(tee -a "${target_dir}/xorg.conf.configure.stderr" $dcv_report_path > /dev/null) | tee -a "${target_dir}/xorg.conf.configure.stdout" $dcv_report_path > /dev/null
         fi
     else
 		reportMessage \
