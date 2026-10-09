@@ -1022,30 +1022,39 @@ checkPackagesVersions()
 	fi
 }
 
+# Mask values that commonly hold secrets before they go into the bundle: whole
+# values of secret-looking variables and the user:password part of URLs (proxies).
+# Lines that do not start a new NAME= are continuations of a multi-line value.
+redactEnv()
+{
+    awk '
+        /^[A-Za-z_][A-Za-z0-9_]*=/ {
+            i = index($0, "=")
+            name = substr($0, 1, i - 1)
+            value = substr($0, i + 1)
+            secret = (toupper(name) ~ /(TOKEN|SECRET|PASSWORD|PASSWD|PASS$|_KEY|KEY_|APIKEY|CREDENTIAL|COOKIE)/)
+            if (secret)
+                value = "[REDACTED]"
+            else
+                gsub(/:\/\/[^\/@ ]+@/, "://[REDACTED]@", value)
+            print name "=" value
+            next
+        }
+        secret { next }
+        { gsub(/:\/\/[^\/@ ]+@/, "://[REDACTED]@"); print }
+    '
+}
+
 getEnvironmentVars()
 {
     echo "Collecting environment variables..."
     target_dir="${temp_dir}/os_data/"
 
-	env > ${target_dir}/env_command
-	env | sort > ${target_dir}/env_sorted_command
-	printenv > ${target_dir}/printenv_command
-
-    getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | while read -r user
-    do
-        USER_DIR="${target_dir}/users_environment_vars/$user"
-        mkdir -p "$USER_DIR"
-    
-        pid=$(pgrep -u "$user" -n)
-        env_file="$USER_DIR/env.txt"
-
-        if [ -z "$pid" ]
-        then
-            echo "No running processes found for user $user" > ${USER_DIR}/env_file
-            continue
-        fi
-        cat "/proc/$pid/environ" | tr '\0' '\n' >> "$env_file"
-    done
+	# Only the environment of this script; other users' process environments
+	# are not collected, as they can hold credentials
+	env | redactEnv > ${target_dir}/env_command
+	env | redactEnv | sort > ${target_dir}/env_sorted_command
+	printenv | redactEnv > ${target_dir}/printenv_command
 }
 
 getPamData()
