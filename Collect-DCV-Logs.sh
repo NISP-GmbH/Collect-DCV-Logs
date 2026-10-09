@@ -696,7 +696,9 @@ compressLogCollection()
 	fi
 
     # -C keeps the archive top-level as tmp/, independent of the staging location
+    compression_running=true
     tar czf "$compressed_file_name" -C "$staging_root" tmp
+    compression_running=false
 }
 
 # Fallback hint when the automatic upload/analysis can't complete (e.g. no
@@ -892,6 +894,21 @@ removeTempFiles()
 	fi
 }
 
+# On any exit (including Ctrl-C and the error exits), remove the staging tree,
+# which holds the collected logs, and an archive left half-written by tar.
+cleanupOnExit()
+{
+    if [ -n "$staging_root" ] && [ -d "$staging_root" ]
+    then
+        rm -rf "$staging_root"
+    fi
+
+    if $compression_running
+    then
+        rm -f "$compressed_file_name"
+    fi
+}
+
 createTempDirs()
 {
     echo "Creating temp dirs structure to store the data..."
@@ -901,6 +918,9 @@ createTempDirs()
         echo -e "${RED}Could not create a temp directory in ${staging_parent}. Set TMPDIR to a writable directory and try again.${NC}"
         exit 1
     fi
+    trap cleanupOnExit EXIT
+    # exit (instead of continuing) so the EXIT trap runs
+    trap 'echo; echo "Interrupted, cleaning up..."; exit 130' INT TERM
     temp_dir="${staging_root}/tmp"
     dcv_report_html_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_html_file_name}"
     dcv_report_path="${temp_dir}/${dcv_report_dir_name}/${dcv_report_file_name}"
@@ -3341,6 +3361,7 @@ BOLD='\033[1m'
 # collection when the script was run from a directory it copies (e.g. /var/log/dcv).
 staging_parent="${TMPDIR:-/var/tmp}"
 staging_root=""
+compression_running="false"
 temp_dir=""
 max_file_size_mb=50
 max_dir_size_mb=500
