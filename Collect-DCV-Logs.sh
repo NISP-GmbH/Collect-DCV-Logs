@@ -439,10 +439,19 @@ collectSupportDetails()
 		support_problem="$identifier_message"
 	fi
 
+	# Without a terminal (cron, Ansible, SSM...) read hits EOF and the prompts
+	# below would loop forever, so fail with a hint instead
+	if [ ! -t 0 ] && { [ -z "$support_name" ] || [ -z "$support_email" ] || [ -z "$support_problem" ]; }
+	then
+		echo -e "${RED}ERROR: no terminal to ask for your contact details.${NC}"
+		echo "Pass --name, --email and --problem, or use --without-upload to keep the logs locally."
+		exit 1
+	fi
+
 	if [ -z "$support_name" ]; then
 		while true; do
 			echo -e "${YELLOW}[REQUIRED]${NC} Your name or company:"
-			read support_name
+			read -r support_name || exit 1
 			[ -n "$support_name" ] && break
 			echo -e "${RED}ERROR: name is mandatory.${NC}"
 		done
@@ -451,7 +460,7 @@ collectSupportDetails()
 	if [ -z "$support_email" ]; then
 		while true; do
 			echo -e "${YELLOW}[REQUIRED]${NC} Your e-mail (so NI SP Support can reach you):"
-			read support_email
+			read -r support_email || exit 1
 			if [[ "$support_email" =~ ^[^@]+@[^@]+\.[^@]+$ ]]; then break; fi
 			echo -e "${RED}ERROR: please enter a valid e-mail address.${NC}"
 		done
@@ -460,7 +469,7 @@ collectSupportDetails()
 	if [ -z "$support_problem" ]; then
 		while true; do
 			echo -e "${YELLOW}[REQUIRED]${NC} Briefly describe the problem you are seeing:"
-			read support_problem
+			read -r support_problem || exit 1
 			[ -n "$support_problem" ] && break
 			echo -e "${RED}ERROR: a short problem description is mandatory.${NC}"
 		done
@@ -883,13 +892,14 @@ removeTempFiles()
 		rm -rf "$staging_root"
 	fi
 
-	if ! $report_only && ! $without_upload
+	# no terminal to answer: keep the file
+	if ! $report_only && ! $without_upload && [ -t 0 ]
 	then
 	    echo -e "${GREEN}Do you want to delete the ${compressed_file_name}?${NC}"
 	    echo "If you have no internet to upload the file, you can manually send to NI SP Support Team."
 	    echo -e "You can upload it to ${YELLOW}${upload_service_base}${NC} and share the resulting link with NI SP Support."
 	    echo "Write Yes/Y/y. Any other response, or empty response, will be considered as no."
-	    read user_answer
+	    read -r user_answer
 
 	    if echo $user_answer | grep -Eiq "^(y|yes)$"
 	    then
