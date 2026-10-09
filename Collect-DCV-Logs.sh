@@ -1306,7 +1306,7 @@ getLightdmData()
 
     sudo cp -r /var/log/lightdm* $target_dir
 
-	sudo journalctl -u lightdm.service > ${target_dir}/journal_sddm
+	sudo journalctl -u lightdm.service > ${target_dir}/journal_lightdm
 
 	lookForDmIssues	$target_dir ${temp_dir}/warnings/
 }
