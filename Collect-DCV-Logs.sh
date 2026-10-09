@@ -1095,7 +1095,7 @@ getSssdData()
     fi
 
     target_dir="${temp_dir}/sssd_log"
-    if [ -f /var/log/sssd ]
+    if [ -d /var/log/sssd ]
     then
         sudo cp -r /var/log/sssd ${target_dir}> /dev/null 2>&1
     fi
@@ -1106,7 +1106,7 @@ getNsswitchData()
     echo "Collecting all NSSwitch relevant info..."
     target_dir="${temp_dir}/nsswitch_conf/"
 
-    if [ -d /etc/nsswitch.conf ]
+    if [ -f /etc/nsswitch.conf ]
     then
         sudo cp /etc/nsswitch.conf ${target_dir}/ > /dev/null 2>&1
     fi
@@ -1240,12 +1240,12 @@ getGdmData()
     echo "Collecting all GDM relevant info..." | tee -a $dcv_report_path
     target_dir="${temp_dir}/gdm_log/"
 
-    if [ -f /var/log/gdm ]
+    if [ -d /var/log/gdm ]
     then
         sudo cp -r /var/log/gdm $target_dir > /dev/null 2>&1
     fi
 
-    if [ -f /var/log/gdm3 ]
+    if [ -d /var/log/gdm3 ]
     then
         sudo cp -r /var/log/gdm3 $target_dir > /dev/null 2>&1
     fi
@@ -1255,12 +1255,12 @@ getGdmData()
 	lookForDmIssues	$target_dir ${temp_dir}/warnings/
 
     target_dir="${temp_dir}/gdm_conf/"
-    if [ -f /etc/gdm/ ]
+    if [ -d /etc/gdm ]
     then
         sudo cp -r /etc/gdm $target_dir > /dev/null 2>&1
     fi
 
-    if [ -f /etc/gdm3/ ]
+    if [ -d /etc/gdm3 ]
     then
         sudo cp -r /etc/gdm3 $target_dir > /dev/null 2>&1
     fi
