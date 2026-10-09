@@ -2852,12 +2852,13 @@ getXorgData()
     if [ -d /usr/share/X11 ]
     then
         mkdir -p ${target_dir}/usr_share_X11
-        sudo cp -r /usr/share/X11 ${target_dir}/usr_share_x11 > /dev/null 2>&1
+        sudo cp -r /usr/share/X11 ${target_dir}/usr_share_X11 > /dev/null 2>&1
 
+		# every Xorg install ships /usr/share/X11, so this is a hint, not a warning
 		reportMessage \
-		"warning" \
+		"info" \
 		"/usr/share/X11 was found." \
-		"${temp_dir}/warnings/usr_share_X11_exist__usually_expected_etc_x11" \
+		"null" \
 		"You need to check xorg.conf.d of both directories (/etc/X11 and /usr/share/X11) and look for configuration files that can enter in conflict with yout environment. For example: radeon drivers being loaded with nvidia driver. We recommend to backup and remove all xorg.conf.d/* files and leave just the ones that you really need. Also, check your /var/log/Xorg.log* files to verify which directories are being loaded and which xorg.conf file is being used. Sometimes both xorg.conf.d are being loaded, causing issues to your X server." \
 		"null" \
         "null" \
