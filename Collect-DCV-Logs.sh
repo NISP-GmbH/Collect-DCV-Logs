@@ -2016,10 +2016,7 @@ runDcvgldiag()
 		echo "" >> $dcv_report_path
 		echo "Executing dcvgldiag test..." | tee -a $dcv_report_path
 
-		if command_exists dcvgldiag
-		then
-	        sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
-		fi
+        sudo dcvgldiag -l ${target_dir}/dcvgldiag.log > /dev/null 2>&1
 
         local string_pattern="test result.*error"
 		if [ -f ${target_dir}/dcvgldiag.log ]
@@ -2046,27 +2043,6 @@ runDcvgldiag()
             dcvgldiag_errors_count=$(grep -Eic "Test Result: ERROR" ${target_dir}/dcvgldiag.log)
             echo "found >> $dcvgldiag_errors_count << tests with error result" > ${temp_dir}/warnings/dcvgldiag_found_${dcvgldiag_errors_count}_errors
         fi
-
-        if sudo lsmod | grep -iq "nouveau"
-        then
-			reportMessage \
-			"critical" \
-			"Found nouveau driver loaded." \
-			"${temp_dir}/warnings/nouveau_kernel_module_found" \
-			"You need to block the opensource nouveau driver, otherwise the nvidia module will not be loaded." \
-			"https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-how-to-block-nouveau-driver" \
-            "null" \
-            "null"
-		else
-			reportMessage \
-			"info" \
-			"Did not find nouveau driver loaded." \
-			"null" \
-			"null" \
-			"null" \
-            "null" \
-            "null"
-        fi
     else
 		reportMessage \
 		"warning" \
@@ -2074,6 +2050,28 @@ runDcvgldiag()
 		"${temp_dir}/warnings/dcvgldiag_not_installed" \
 		"This is a important tool from DCV Team that checks most common Xorg issues that can cause DCV bad performance or problems. You can get the dcvgldiag tool from the DCV Server package." \
 		"https://www.ni-sp.com/dcv-download/" \
+        "null" \
+        "null"
+    fi
+
+    # independent of dcvgldiag: nouveau blocks the nvidia module either way
+    if sudo lsmod | grep -iq "nouveau"
+    then
+		reportMessage \
+		"critical" \
+		"Found nouveau driver loaded." \
+		"${temp_dir}/warnings/nouveau_kernel_module_found" \
+		"You need to block the opensource nouveau driver, otherwise the nvidia module will not be loaded." \
+		"https://www.ni-sp.com/knowledge-base/dcv-general/nvidia-cuda/#h-how-to-block-nouveau-driver" \
+        "null" \
+        "null"
+    else
+		reportMessage \
+		"info" \
+		"Did not find nouveau driver loaded." \
+		"null" \
+		"null" \
+		"null" \
         "null" \
         "null"
     fi
