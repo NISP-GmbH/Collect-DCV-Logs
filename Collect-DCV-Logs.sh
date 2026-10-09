@@ -2621,7 +2621,7 @@ getSmartInfo()
         timeout 5 smartctl -l selftest "$local_storage_device" 2>&1 | tee -a $smart_disk_report $dcv_report_path
     
         # Check for warnings
-        check_warnings "$local_storage_device"
+        getSmartWarnings "$local_storage_device"
     done
 }
 
@@ -2636,10 +2636,10 @@ getSmartWarnings()
     if echo "$health" | grep -q "FAILED"
     then
 		reportMessage \
-		"warning" \
+		"critical" \
 		"$disk_name - SMART overall health test FAILED!" \
 		"$smart_disk_warnings" \
-		"Enable the S.M.A.R.T. in your storage devices." \
+		"The drive reports that it is failing. Back up your data and replace the storage device." \
 		"null" \
         "null" \
         "null"
@@ -2658,7 +2658,7 @@ getSmartWarnings()
     realloc=$(smartctl -A "$disk" 2>/dev/null | grep "Reallocated_Sector_Ct")
     if [[ -n "$realloc" ]]
     then
-        value=$(echo "$realloc" | awk '{print $10}')
+        value=$(echo "$realloc" | awk '{v=$10; sub(/[^0-9].*/, "", v); print (v == "" ? 0 : v)}')
         if [[ "$value" -gt 0 ]]
         then
 			reportMessage \
@@ -2685,7 +2685,7 @@ getSmartWarnings()
     pending=$(smartctl -A "$disk" 2>/dev/null | grep "Current_Pending_Sector")
     if [[ -n "$pending" ]]
     then
-        value=$(echo "$pending" | awk '{print $10}')
+        value=$(echo "$pending" | awk '{v=$10; sub(/[^0-9].*/, "", v); print (v == "" ? 0 : v)}')
         if [[ "$value" -gt 0 ]]
         then
 			reportMessage \
@@ -2712,7 +2712,7 @@ getSmartWarnings()
     uncorrect=$(smartctl -A "$disk" 2>/dev/null | grep "Offline_Uncorrectable")
     if [[ -n "$uncorrect" ]]
     then
-        value=$(echo "$uncorrect" | awk '{print $10}')
+        value=$(echo "$uncorrect" | awk '{v=$10; sub(/[^0-9].*/, "", v); print (v == "" ? 0 : v)}')
         if [[ "$value" -gt 0 ]]
         then
 			reportMessage \
@@ -2727,9 +2727,9 @@ getSmartWarnings()
 			reportMessage \
 			"info" \
 			"Did not find damaged sectors with the storage device >> $disk_name <<." \
-			"" \
-			"" \
-			"" \
+			"null" \
+			"null" \
+			"null" \
             "null" \
             "null"
         fi
@@ -2739,7 +2739,7 @@ getSmartWarnings()
     temp=$(smartctl -A "$disk" 2>/dev/null | grep -E "Temperature_Celsius|Airflow_Temperature_Cel")
     if [[ -n "$temp" ]]
     then
-        temp_value=$(echo "$temp" | head -1 | awk '{print $10}')
+        temp_value=$(echo "$temp" | head -1 | awk '{v=$10; sub(/[^0-9].*/, "", v); print (v == "" ? 0 : v)}')
         if [[ "$temp_value" -gt 55 ]]
         then
 			reportMessage \
@@ -2763,7 +2763,10 @@ getSmartWarnings()
     fi
     
     # Check for errors in error log
-    error_count=$(smartctl -l error "$disk" 2>/dev/null | grep -c "Error")
+    # The header ("SMART Error Log Version") and "No Errors Logged" also contain
+    # "Error", so read the logged count instead of counting matching lines
+    error_count=$(smartctl -l error "$disk" 2>/dev/null | grep -oE "Error Count: *[0-9]+" | grep -oE "[0-9]+" | head -n1)
+    error_count=${error_count:-0}
     if [[ "$error_count" -gt 0 ]]
     then
 		reportMessage \
@@ -2789,7 +2792,7 @@ getSmartWarnings()
     hours=$(smartctl -A "$disk" 2>/dev/null | grep "Power_On_Hours")
     if [[ -n "$hours" ]];
     then
-        hours_value=$(echo "$hours" | awk '{print $10}')
+        hours_value=$(echo "$hours" | awk '{v=$10; sub(/[^0-9].*/, "", v); print (v == "" ? 0 : v)}')
         if [[ "$hours_value" -gt 43800 ]]
         then
             # More than 5 years (24*365*5)
