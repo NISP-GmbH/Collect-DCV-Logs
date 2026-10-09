@@ -489,7 +489,7 @@ checkLinuxDistro()
                     redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1)
                 fi
 
-                if [[ ! $redhat_distro_based_version =~ ^[789]$ ]]
+                if [[ ! $redhat_distro_based_version =~ ^(7|8|9|10)$ ]]
                 then
                     echo "Your RedHat Based Linux distro version..."
                     cat /etc/redhat-release
@@ -508,10 +508,12 @@ checkLinuxDistro()
                 if cat /etc/issue | grep -Eiq "ubuntu"
                 then
                     ubuntu_distro="true"
-                    ubuntu_version=$(lsb_release -rs)
+                    # lsb_release is not installed on minimal systems
+                    ubuntu_version=$(lsb_release -rs 2>/dev/null || (. /etc/os-release && echo "$VERSION_ID"))
                     ubuntu_major_version=$(echo $ubuntu_version | cut -d '.' -f 1)
                     ubuntu_minor_version=$(echo $ubuntu_version | cut -d '.' -f 2)
-                    if ( [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24  ]] ) && [[ $ubuntu_minor_version -ne 04 ]]
+                    # supported: LTS releases (even year, .04) from 18.04 to 24.04
+                    if [[ ! $ubuntu_major_version =~ ^[0-9]+$ ]] || [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24 ]] || (( ubuntu_major_version % 2 )) || [[ "$ubuntu_minor_version" != "04" ]]
                     then
                         echo "Your Ubuntu version >> $ubuntu_version << is not supported. Aborting..."
                         exit 20
@@ -946,7 +948,8 @@ checkPackagesVersions()
         fi
     fi
 
-    if [[ "$redhat_distro_based" == true ]]
+    # --force sets both distro flags, so check rpm/dpkg exist before using them
+    if [[ "$redhat_distro_based" == true ]] && command_exists rpm
     then
         rpm -qa --qf "%{NAME} %{VERSION}-%{RELEASE}\n" | while read -r package version_release
         do
@@ -980,7 +983,7 @@ checkPackagesVersions()
 	    fi
 	fi
 
-    if [[ "$ubuntu_distro" == "true" ]]
+    if [[ "$ubuntu_distro" == "true" ]] && command_exists dpkg
     then
         dcv_packages=(
         "nice-dcv-gl"
