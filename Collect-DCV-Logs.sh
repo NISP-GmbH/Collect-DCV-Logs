@@ -2238,22 +2238,19 @@ getOsData()
     sudo cp -r /var/log/boot* $target_dir > /dev/null 2>&1
     sudo cp -r /var/log/kdump* $target_dir > /dev/null 2>&1
 
-    if [ -f ${target_dir}/deb_packages_list ]
-    then
-        pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
-        if safeLogCheck "${pkg_names}" "${target_dir}/deb_packages_list"
+    # the package lists were written to os_data/ above; target_dir is os_log/ by now
+    pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
+    for packages_list in "${temp_dir}/os_data/deb_packages_list" "${temp_dir}/os_data/rpm_packages_list"
+    do
+        if safeLogCheck "${pkg_names}" "${packages_list}"
         then
-            cat ${target_dir}/deb_packages_list | grep -Eiq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
+            # spice-vdagent is the VM guest agent, not a remote desktop server
+            grep -Ei "${pkg_names}" "${packages_list}" | grep -vi "vdagent" >> ${temp_dir}/warnings/remote_desktop_server_found
         fi
-    fi
-
-    if [ -f ${target_dir}/rpm_packages_list ]
+    done
+    if [ ! -s ${temp_dir}/warnings/remote_desktop_server_found ]
     then
-        pkg_names="(vnc|tiger[^a-z]|team[vV]iewer|any(desk|where)|nomachine|teradici|xrdp|x2go|remmina|spice|guacamole|krdc|rustdesk|dwservice|wayk|meshcentral|remotely|thinlinc|parsec|moonlight|sunshine|webtop|chrome-remote|remotepc|splashtop|logmein|screen-connect|connectwise)"
-        if safeLogCheck "${pkg_names}" "${target_dir}/rpm_packages_list"
-        then
-            cat ${target_dir}/rpm_packages_list | grep -Eiq "${pkg_names}" > ${temp_dir}/warnings/remote_desktop_server_found
-        fi
+        rm -f ${temp_dir}/warnings/remote_desktop_server_found
     fi
 
     # match only real OOM kill events, not strings like OomKillDisable, OOMKilled or oom_score_adj
