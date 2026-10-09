@@ -418,7 +418,6 @@ welcomeMessage()
 		;;
 		2)
 			# The AI analysis reads the logs, so the uploaded bundle is unencrypted.
-			without_encryption=true
 			echo -e "${GREEN}In the end the logs will be collected into a compressed file, uploaded to NI SP over HTTPS, and sent to Deep NI SP for an automatic AI log analysis.${NC}"
     		echo "If you do not have internet access when executing this script, the file will be kept locally so you can upload it manually."
 
@@ -711,22 +710,6 @@ compressLogCollection()
     tar czf "$compressed_file_name" -C "$staging_root" tmp
 }
 
-encryptLogCollection()
-{
-	if $report_only
-	then
-		return
-	fi
-
-	if $without_encryption
-	then
-		echo -e "${YELLOW}Skipping encryption as requested (--without-encryption).${NC}"
-		return
-	fi
-
-    gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "${encrypt_password}" --output "${encrypted_file_name}"  "${compressed_file_name}"
-}
-
 # Fallback hint when the automatic upload/analysis can't complete (e.g. no
 # internet). The unencrypted bundle is kept locally for a manual upload.
 uploadFallbackHint()
@@ -898,11 +881,6 @@ removeTempFiles()
 			fi
 		fi
 		rm -rf "$staging_root"
-	fi
-
-	if [ -f $encrypted_file_name ]
-	then
-		rm -f $encrypted_file_name
 	fi
 
 	if ! $report_only && ! $without_upload
@@ -1411,7 +1389,7 @@ getDcvData()
     then
         sudo cp -r /var/log/dcv $target_dir > /dev/null 2>&1
         # Output of a previous run started from /var/log/dcv; not DCV logs, and it bloats the bundle
-        sudo rm -rf "${target_dir}dcv/${compressed_file_name}" "${target_dir}dcv/${encrypted_file_name}" "${target_dir}dcv/${output_dir_name}"
+        sudo rm -rf "${target_dir}dcv/${compressed_file_name}" "${target_dir}dcv/${compressed_file_name}.gpg" "${target_dir}dcv/${output_dir_name}"
 
         # The cp output is discarded, so verify the main log actually made it into the bundle
         if sudo test -f /var/log/dcv/server.log && ! sudo test -f "${target_dir}dcv/server.log"
@@ -3359,9 +3337,6 @@ max_dir_size_mb=500
 max_file_tail_lines=15000
 collection_script_version="2026.10"
 compressed_file_name="dcv_logs_collection.tar.gz"
-encrypted_file_name="${compressed_file_name}.gpg"
-encrypt_length="32"
-encrypt_password=$(openssl rand -base64 48 | tr -dc '\-A-Za-z0-9@#$%^&*()_=+' | tr -d ' ' | head -c "${encrypt_length}")
 # AI log analysis: upload the (unencrypted) bundle to the NI SP upload service,
 # then request an analysis from Deep NI SP, which returns a private report link.
 upload_service_base="https://upload.ni-sp.com"
@@ -3379,7 +3354,6 @@ redhat_distro_based_version=""
 force_flag="false"
 report_only="false"
 collect_log_only="false"
-without_encryption="false"
 without_upload="false"
 without_compression="false"
 proxy_url=""
@@ -3418,7 +3392,6 @@ showHelp()
 	echo "  --force                 Skip Linux distribution compatibility check"
 	echo "  --report-only           Only generate the report without collecting logs"
 	echo "  --collect-logs          Only collect logs without interactive menu"
-	echo "  --without-encryption    Create compressed file without GPG encryption"
 	echo "  --without-upload        Skip upload, keep file locally for manual upload"
 	echo "  --without-compression   Skip compression, keep collected logs as a directory"
 	echo "  --proxy \"url\"           Use a proxy for uploading (e.g. http://proxy:8080,"
@@ -3457,14 +3430,14 @@ do
 			collect_log_only=true
 		;;
 		--without-encryption)
-			without_encryption=true
+			# encryption was removed (the AI analysis needs a readable bundle);
+			# still accepted so existing command lines keep working
 		;;
 		--without-upload)
 			without_upload=true
 		;;
 		--without-compression)
 			without_compression=true
-			without_encryption=true
 			without_upload=true
 		;;
 		--proxy)
@@ -3538,7 +3511,6 @@ main()
     writeCollectionMeta
     enforceSizeLimits
     compressLogCollection
-    encryptLogCollection
     uploadLogCollection
     removeTempFiles
     byebyeMessage
