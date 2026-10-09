@@ -1018,17 +1018,16 @@ checkPackagesVersions()
 	            version=$(dpkg-query -W -f='${Version}' "$package")
 	            year=$(echo "$version" | cut -d'.' -f1)
             
-	            if [[ "$ubuntu_version" == "20.04" ]]
-	            then
-	                min_year=2020
-	            elif [[ "$ubuntu_version" == "22.04" ]]
-	            then
-	                min_year=2022
-	            else
-	                min_year=$(($(date +%Y) - 1))  # Default to last year for unknown Ubuntu versions
-	            fi
+	            # DCV versions start with the release year (e.g. 2024.0), so expect at
+	            # least the year of the Ubuntu release (20.04 -> 2020, 24.04 -> 2024).
+	            # A fixed value: "current year - 1" flagged good installs every January.
+	            min_year="20${ubuntu_major_version}"
 
-	            if [[ $year =~ ^[0-9]+$ ]]
+	            if [[ ! $ubuntu_major_version =~ ^[0-9]+$ ]]
+	            then
+	                # --force on an unknown version: nothing to compare against
+	                echo "Note: $package version $version, Ubuntu version unknown" >> "${target_dir}/dcv_packages_version_info"
+	            elif [[ $year =~ ^[0-9]+$ ]]
 	            then
 	                if [[ "$year" -lt "$min_year" ]]
 	                then
@@ -1037,7 +1036,7 @@ checkPackagesVersions()
 	                	echo "Note: $package version $version appears to be compatible with Ubuntu $ubuntu_version" >> "${target_dir}/dcv_packages_version_info"
 	                fi
 	            else
-	            	echo "Package $package is not installed" >> "${target_dir}/dcv_packages_not_installed"
+	            	echo "Package $package version $version could not be parsed" >> "${target_dir}/dcv_packages_version_info"
 	            fi
 	        fi
 	    done
