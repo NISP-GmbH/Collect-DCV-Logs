@@ -47,4 +47,4 @@ wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent
 | `--message "text"` | Deprecated alias of `--problem` |
 | `--without-encryption` | Deprecated, has no effect (the bundle is not encrypted) |
 
-`--name`, `--email` and `--problem` are asked interactively when missing. When the script runs without a terminal (cron, Ansible, SSM...), they are mandatory unless `--without-upload` is used. Unknown parameters stop the script with an error.
+`--name`, `--email` and `--problem` are asked interactively when missing. They go to Deep NI SP with the analysis request and are also stored with the upload on NI SP's upload service, so NI SP Support can see who sent the bundle. When the script runs without a terminal (cron, Ansible, SSM...), they are mandatory unless `--without-upload` is used. Unknown parameters stop the script with an error.
