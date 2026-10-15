@@ -13,7 +13,7 @@ wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent
 # Notes 
 - The script must run as root (use `sudo`).
 - The script will not stop/start or touch any service, and it does not install packages. Installing `smartmontools` (for storage health), `nice-dcv-gl` (if you use a GPU) and `nice-dcv-gltest` makes the report more complete.
-- In the end the script uploads the log bundle over HTTPS to NI SP and requests an automatic AI analysis from Deep NI SP. It prints a private link where the report will be ready within ~30 minutes. The bundle itself is not encrypted, because the analysis needs to read it. Values of environment variables that look like secrets (tokens, passwords, keys, proxy credentials) are masked before collection.
+- In the end the script uploads the log bundle over HTTPS to NI SP and asks whether to send it to Deep NI SP for an automatic analysis. If you agree, it prints a private link where the report will be ready within ~30 minutes; if not, the bundle is only uploaded and NI SP Support is notified. The bundle itself is not encrypted, because the analysis needs to read it. Values of environment variables that look like secrets (tokens, passwords, keys, proxy credentials) are masked before collection.
 - If you can not upload due to missing internet access or internal WAF rules, the bundle is kept locally so you can upload it manually to https://upload.ni-sp.com/ and send the link to NI SP Support.
 - Supported systems: RHEL, Rocky, AlmaLinux, CentOS, Oracle Linux 7 to 10, and Ubuntu 18.04, 20.04, 22.04 and 24.04 LTS. If your OS is not supported, you can force the log collection with the `--force` parameter.
 
@@ -41,10 +41,11 @@ wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent
 | `--without-upload` | Skip the automatic upload to NI SP. The file is preserved locally. You can then manually upload it to https://upload.ni-sp.com/ and send the generated link to NISP Support Team |
 | `--without-compression` | Skip compression and keep the collected logs as a directory (`dcv_logs_collection/`). Implies `--without-upload` |
 | `--proxy "url"` | Use a proxy for uploading the file. Supports HTTP, HTTPS, and SOCKS proxies (e.g. `http://proxy:8080`, `socks5://proxy:1080`) |
-| `--name "text"` | Your name or company, sent with the AI analysis request |
+| `--without-analysis` | Upload without asking for or requesting the automatic analysis. NI SP Support is notified of the upload |
+| `--name "text"` | Your name or company, sent with the upload |
 | `--email "addr"` | Your e-mail, so NI SP Support can reach you |
 | `--problem "text"` | Short description of the problem you are seeing |
 | `--message "text"` | Deprecated alias of `--problem` |
 | `--without-encryption` | Deprecated, has no effect (the bundle is not encrypted) |
 
-`--name`, `--email` and `--problem` are asked interactively when missing. They go to Deep NI SP with the analysis request and are also stored with the upload on NI SP's upload service, so NI SP Support can see who sent the bundle. When the script runs without a terminal (cron, Ansible, SSM...), they are mandatory unless `--without-upload` is used. Unknown parameters stop the script with an error.
+`--name`, `--email` and `--problem` are asked interactively when missing. They go to Deep NI SP with the analysis request and are also stored with the upload on NI SP's upload service, so NI SP Support can see who sent the bundle. When the script runs without a terminal (cron, Ansible, SSM...), they are mandatory unless `--without-upload` is used. Without a terminal the automatic analysis is requested unless `--without-analysis` is given. Unknown parameters stop the script with an error.
