@@ -736,15 +736,26 @@ requestAiAnalysis()
 	# Slack card — Deep NI SP announces this bundle when the analysis finishes.
 	local product_b64
 	product_b64=$(printf '%s' "$product" | base64 | tr -d '\n')
+	# E-mail, problem and consent go into the upload's .info sidecar so the NI SP
+	# upload admin shows who sent the bundle. The problem is capped at 300 bytes;
+	# iconv drops a multibyte char split by the cut (plain cut if iconv is absent).
+	local metadata desc_b64
+	metadata="filename ${fname_b64},product ${product_b64},consent $(printf '1' | base64)"
+	metadata+=",email $(printf '%s' "$support_email" | base64 | tr -d '\n')"
+	if [ -n "$support_problem" ]; then
+		desc_b64=$(printf '%s' "$support_problem" | head -c 300 \
+			| { iconv -f UTF-8 -t UTF-8 -c 2>/dev/null || cat; } | base64 | tr -d '\n')
+		metadata+=",description ${desc_b64}"
+	fi
 
 	echo -e "${YELLOW}Uploading the logs to NI SP (${fsize} bytes)...${NC}"
 
-	# 1) tus create — declare the length + filename, receive an upload Location.
+	# 1) tus create — declare the length + metadata, receive an upload Location.
 	local create_headers location
 	create_headers=$(curl "${curl_opts[@]}" -D - -o /dev/null -X POST "${upload_service_base}/files/" \
 		-H "Tus-Resumable: 1.0.0" \
 		-H "Upload-Length: ${fsize}" \
-		-H "Upload-Metadata: filename ${fname_b64},product ${product_b64}")
+		-H "Upload-Metadata: ${metadata}")
 	location=$(printf '%s' "$create_headers" | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}')
 	if [ -z "$location" ]; then
 		echo -e "${RED}Upload failed (could not create the upload session).${NC}"
