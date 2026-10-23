@@ -3218,6 +3218,105 @@ checkDcvManagementLinux()
     sudo chown -R $USER:$USER ${target_dir}/
 }
 
+# Print the DPM Agent config with every value outside an ALLOW-list masked, so a
+# credential added in a later agent release is masked by default (dpm-agent-bundle, 2026-10-23).
+# Mirrors the agent's own bundle (CONFIG_PUBLIC_KEYS in dpm-agent src/logcollect.rs);
+# base_url/relay_url also lose any user:pass@.
+redactDpmAgentConfig()
+{
+    sudo awk '
+    BEGIN {
+        n = split("base_url relay_url floor_remote_logs floor_remote_session_actions floor_remote_dcv_config agent_id identity_key_path log_dir poll_interval_seconds tls_skip_verify renew_credentials desktop_sso_enabled desktop_autologin s4u_targets dcv_config_manage host_console_enabled host_console_bind host_console_port_override host_console_allow_network host_console_standalone device_lock_enabled device_lock", keys, " ")
+        for (i = 1; i <= n; i++) allow[keys[i]] = 1
+    }
+    {
+        eq = index($0, "=")
+        if (eq == 0) { print; next }
+        lhs = substr($0, 1, eq - 1)
+        value = substr($0, eq + 1)
+        key = lhs
+        gsub(/^[ \t]+|[ \t]+$/, "", key)
+        gsub(/^["\047]|["\047]$/, "", key)
+        if (key ~ /^#/ || value ~ /^[ \t]*$/) { print; next }
+        if (!(key in allow)) { print lhs "= <redacted>"; next }
+        if (key == "base_url" || key == "relay_url") sub(/:\/\/[^\/@]*@/, "://", value)
+        print lhs "=" value
+    }' "$1"
+}
+
+checkDpmAgent()
+{
+    echo "Checking if DPM Agent is present..." | tee -a $dcv_report_path
+    local agent_conf="/etc/dpm-agent/config.toml"
+    local agent_bin="/usr/local/bin/dpm-agent"
+    local agent_unit=false
+
+    if sudo systemctl list-unit-files --type=service 2>/dev/null | grep -q "^dpm-agent\.service"
+    then
+        agent_unit=true
+    fi
+
+    if ! $agent_unit && ! sudo test -f "$agent_conf" && [ ! -x "$agent_bin" ]
+    then
+        echo "DPM Agent not found, skipping." | tee -a $dcv_report_path
+        return
+    fi
+
+    if $agent_unit
+    then
+        local agent_enabled="disabled" agent_active="not_active" agent_level="warning"
+        sudo systemctl is-enabled dpm-agent &> /dev/null && agent_enabled="enabled"
+        sudo systemctl is-active dpm-agent &> /dev/null && agent_active="active"
+        [ "$agent_enabled" == "enabled" ] && [ "$agent_active" == "active" ] && agent_level="info"
+        reportMessage \
+        "$agent_level" \
+        "DPM Agent service is >> $agent_enabled << and >> $agent_active <<." \
+        "${temp_dir}/warnings/dpm_agent_${agent_enabled}_and_${agent_active}" \
+        "null" \
+        "null" \
+        "null" \
+        "null"
+    fi
+
+    if $report_only
+    then
+        return
+    fi
+
+    local log_target="${temp_dir}/dpm_agent_log"
+    local conf_target="${temp_dir}/dpm_agent_conf"
+    sudo mkdir -p "$log_target" "$conf_target"
+
+    # Only config.toml, redacted: /etc/dpm-agent also holds identity.pem (the
+    # agent's private key) and dcv-license.env, so it is never copied whole.
+    local agent_log_dir="/var/log/dpm-agent"
+    if sudo test -f "$agent_conf"
+    then
+        redactDpmAgentConfig "$agent_conf" > "${conf_target}/config.toml.redacted" 2>/dev/null
+        local conf_log_dir
+        conf_log_dir=$(sudo grep -E '^[[:space:]]*log_dir[[:space:]]*=' "$agent_conf" 2>/dev/null | head -n1 | cut -d= -f2- | tr -d " \"'")
+        [ -n "$conf_log_dir" ] && agent_log_dir="$conf_log_dir"
+    fi
+
+    if sudo test -d "$agent_log_dir"
+    then
+        sudo find "$agent_log_dir" -maxdepth 1 -type f -name "dpm-agent.log*" -exec cp -a {} "${log_target}/" \; > /dev/null 2>&1
+    fi
+
+    if [ -x "$agent_bin" ]
+    then
+        sudo "$agent_bin" --version > "${log_target}/version.txt" 2>&1 || true
+    fi
+
+    if $agent_unit
+    then
+        sudo systemctl status dpm-agent --no-pager -l > "${log_target}/systemctl_status.txt" 2>&1 || true
+        sudo systemctl cat dpm-agent > "${log_target}/systemctl_cat.txt" 2>&1 || true
+        sudo journalctl -u dpm-agent -n 20000 --no-pager > "${log_target}/journal_dpm_agent.txt" 2>&1 || true
+    fi
+    sudo chown -R $USER:$USER "$log_target" "$conf_target"
+}
+
 getCronInfo()
 {
 	echo "Getting cronjob info..." | tee -a $dcv_report_path
@@ -3624,6 +3723,7 @@ main()
     getDcvData
 	getDcvMemoryConfig
 	checkDcvManagementLinux
+	checkDpmAgent
     #getDcvDataAfterReboot
     runDcvgldiag
 	doHtmlReport

@@ -15,6 +15,7 @@ wget --no-check-certificate -O Collect-DCV-Logs.sh https://raw.githubusercontent
 - The script will not stop/start or touch any service, and it does not install packages. Installing `smartmontools` (for storage health), `nice-dcv-gl` (if you use a GPU) and `nice-dcv-gltest` makes the report more complete.
 - In the end the script uploads the log bundle over HTTPS to NI SP and asks whether to send it to Deep NI SP for an automatic analysis. If you agree, it prints a private link where the report will be ready within ~30 minutes; if not, the bundle is only uploaded and NI SP Support is notified. The bundle itself is not encrypted, because the analysis needs to read it. Values of environment variables that look like secrets (tokens, passwords, keys, proxy credentials) are masked before collection.
 - If you can not upload due to missing internet access or internal WAF rules, the bundle is kept locally so you can upload it manually to https://upload.ni-sp.com/ and send the link to NI SP Support.
+- If the DPM Agent (DCV Pool Management) is installed, its logs, service state and configuration are added to the bundle (`dpm_agent_log/`, `dpm_agent_conf/`). Credentials in the configuration are masked and the agent's private key is never collected. Hosts without the agent are not affected.
 - Supported systems: RHEL, Rocky, AlmaLinux, CentOS, Oracle Linux 7 to 10, and Ubuntu 18.04, 20.04, 22.04 and 24.04 LTS. If your OS is not supported, you can force the log collection with the `--force` parameter.
 
 # Advanced parameters
